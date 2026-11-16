@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <title>İP 12 - Eğitim Cüzdanı Oluşturucu</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.umd.min.js"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 850px; margin: 2rem auto; padding: 0 1rem; background: #0f172a; color: #f8fafc; }
+    h1 { color: #38bdf8; }
+    .warning { background: #451a03; border-left: 4px solid #f59e0b; padding: 1rem; margin-bottom: 1.5rem; border-radius: 4px; color: #fde68a; }
+    button { background: #0284c7; color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 6px; cursor: pointer; font-size: 0.95rem; font-weight: 600; margin-right: 0.5rem; }
+    button:hover { background: #0369a1; }
+    button.secondary { background: #334155; }
+    button.secondary:hover { background: #475569; }
+    .step-card { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
+    .step-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+    .step-title { font-weight: bold; color: #7dd3fc; }
+    .lib-call { font-family: monospace; font-size: 0.82rem; color: #94a3b8; background: #0f172a; padding: 0.2rem 0.5rem; border-radius: 4px; }
+    .value-box { font-family: monospace; word-break: break-all; background: #0f172a; padding: 0.75rem; border-radius: 6px; border: 1px solid #1e293b; color: #e2e8f0; margin-top: 0.4rem; }
+    .masked { filter: blur(6px); user-select: none; }
+    .desc { font-size: 0.88rem; color: #cbd5e1; margin: 0.3rem 0; }
+    .check-panel { margin-top: 2rem; border-top: 2px solid #334155; padding-top: 1.5rem; }
+    input, textarea { width: 100%; box-sizing: border-box; background: #0f172a; color: #f8fafc; border: 1px solid #475569; border-radius: 6px; padding: 0.6rem; font-family: monospace; margin-top: 0.4rem; margin-bottom: 0.8rem; }
+  </style>
+</head>
+<body>
+
+  <h1>İP 12: Eğitim Cüzdanı Oluşturucu</h1>
+  <div class="warning">
+    <strong>Uyarı:</strong> Bu araç yalnızca eğitim amaçlıdır. Üretilen kurtarma kelimelerine gerçek varlık göndermeyin. Hassas alanlar varsayılan olarak gizlidir; ekran görüntüsü alırken gizli tutun.
+  </div>
+
+  <div style="margin-bottom: 1.5rem;">
+    <button onclick="generateWallet()">Yeni Eğitim Cüzdanı Oluştur (128-bit)</button>
+    <button class="secondary" onclick="toggleAllSensitive()">Hassas Alanları Göster / Gizle</button>
+  </div>
+
+  <div id="steps-container" style="display:none;">
+    <div class="step-card">
+      <div class="step-header">
+        <span class="step-title">1. 128-Bit Kriptografik Entropi (16 Byte)</span>
+        <span class="lib-call">window.crypto.getRandomValues(new Uint8Array(16))</span>
+      </div>
+      <div class="desc">İşletim sisteminin kriptografik rastgele sayı üretecinden (CSPRNG) 128 bit ham rastgele veri üretilir.</div>
+      <div id="val-entropy" class="value-box sensitive masked"></div>
+    </div>
+
+    <div class="step-card">
+      <div class="step-header">
+        <span class="step-title">2. BIP39 Mnemonic (12 İngilizce Kelime)</span>
+        <span class="lib-call">ethers.Mnemonic.fromEntropy(entropyBytes)</span>
+      </div>
+      <div class="desc">128 bit entropinin SHA-256 özetinin ilk 4 biti checksum olarak eklenir (132 bit). 11'er bitlik 12 parçaya bölünüp BIP39 kelime listesinden 12 kelimeye eşlenir.</div>
+      <div id="val-mnemonic" class="value-box sensitive masked"></div>
+    </div>
+
+    <div class="step-card">
+      <div class="step-header">
+        <span class="step-title">3. BIP39 Seed (512-Bit / 64 Byte)</span>
+        <span class="lib-call">mnemonicObj.computeSeed() [PBKDF2-HMAC-SHA512]</span>
+      </div>
+      <div class="desc">12 kelime ve boş passphrase (""), PBKDF2 fonksiyonundan 2048 iterasyonla geçirilerek 512 bitlik ana tohum (seed) üretilir.</div>
+      <div id="val-seed" class="value-box sensitive masked"></div>
+    </div>
+
+    <div class="step-card">
+      <div class="step-header">
+        <span class="step-title">4. BIP32 / BIP44 Türetme Yolu ve Private Key</span>
+        <span class="lib-call">ethers.HDNodeWallet.fromSeed(seed).derivePath("m/44'/60'/0'/0/0")</span>
+      </div>
+      <div class="desc">Seed'den master node oluşturulur ve Ethereum standart yolu (m/44'/60'/0'/0/0) izlenerek ilk hesabın 256-bit özel anahtarı (private key) türetilir.</div>
+      <div id="val-privkey" class="value-box sensitive masked"></div>
+    </div>
+
+    <div class="step-card">
+      <div class="step-header">
+        <span class="step-title">5. Public Key (Secp256k1 Eliptik Eğri)</span>
+        <span class="lib-call">new ethers.SigningKey(privateKey).publicKey</span>
+      </div>
+      <div class="desc">Private key ile secp256k1 eliptik eğrisi üzerinde nokta çarpımı yapılarak açık anahtar (public key) hesaplanır.</div>
+      <div id="val-pubkey" class="value-box"></div>
+    </div>
+
+    <div class="step-card">
+      <div class="step-header">
+        <span class="step-title">6. Ethereum Adresi (EIP-55 Checksum)</span>
+        <span class="lib-call">ethers.computeAddress(publicKey) [Keccak-256 son 20 byte]</span>
+      </div>
+      <div class="desc">Açık anahtarın Keccak-256 özetinin son 20 baytı alınır ve EIP-55 büyük/küçük harf checksum formatıyla adres elde edilir.</div>
+      <div id="val-address" class="value-box" style="color:#4ade80; font-weight:bold; font-size:1.05rem;"></div>
+    </div>
+  </div>
+
+  <!-- İP 12 İsteğe Bağlı Test Vektörü ve İP 13 Checksum Deneyi Aracı -->
+  <div class="check-panel">
+    <h2>Mnemonic Doğrulama & Checksum Deneyi (İP 12 & İP 13)</h2>
+    <p class="desc">Herhangi bir 12 kelimelik mnemonic dizisinin BIP39 checksum geçerliliğini ve ürettiği adresi buradan test edebilirsin.</p>
+    <label>12 Kelimelik Mnemonic:</label>
+    <textarea id="test-mnemonic" rows="2" placeholder="abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"></textarea>
+    <label>Opsiyonel Passphrase (Standart eğitim cüzdanı için boş bırakın, BIP39 resmi test vektörü için TREZOR yazabilirsiniz):</label>
+    <input type="text" id="test-passphrase" placeholder="Boş bırakın..." />
+    <button onclick="verifyCustomMnemonic()">Mnemonic Doğrula ve Hesapla</button>
+    <button class="secondary" onclick="loadOfficialTestVector()">BIP39 Resmi Test Vektörü Yükle (0000...0000)</button>
+    <div id="test-result" class="value-box" style="margin-top:1rem; display:none;"></div>
+  </div>
+
+  <script>
+    let isMasked = true;
+
+    function generateWallet() {
+      // 1. 128-bit (16 byte) CSPRNG Entropi
+      const entropyBytes = new Uint8Array(16);
+      window.crypto.getRandomValues(entropyBytes);
+      const entropyHex = ethers.hexlify(entropyBytes);
+
+      // 2. Entropi -> 12 Kelime Mnemonic (BIP39, boş passphrase)
+      const mnemonicObj = ethers.Mnemonic.fromEntropy(entropyBytes, "");
+      const phrase = mnemonicObj.phrase;
+
+      // 3. Mnemonic -> 512-bit Seed
+      const seedHex = mnemonicObj.computeSeed();
+
+      // 4. Seed -> BIP32 Master Node -> BIP44 m/44'/60'/0'/0/0 yolu
+      const masterNode = ethers.HDNodeWallet.fromSeed(seedHex);
+      const childNode = masterNode.derivePath("m/44'/60'/0'/0/0");
+      const privateKey = childNode.privateKey;
+
+      // 5. Private Key -> Secp256k1 Public Key (Uncompressed & Compressed)
+      const signingKey = new ethers.SigningKey(privateKey);
+      const publicKey = signingKey.publicKey; // Uncompressed (0x04...)
+
+      // 6. Public Key -> Ethereum Adresi
+      const address = ethers.computeAddress(publicKey);
+
+      document.getElementById("val-entropy").textContent = entropyHex;
+      document.getElementById("val-mnemonic").textContent = phrase;
+      document.getElementById("val-seed").textContent = seedHex;
+      document.getElementById("val-privkey").textContent = privateKey;
+      document.getElementById("val-pubkey").textContent = publicKey;
+      document.getElementById("val-address").textContent = address;
+
+      document.getElementById("steps-container").style.display = "block";
+    }
+
+    function toggleAllSensitive() {
+      isMasked = !isMasked;
+      document.querySelectorAll(".sensitive").forEach(el => {
+        el.classList.toggle("masked", isMasked);
+      });
+    }
+
+    function verifyCustomMnemonic() {
+      const phrase = document.getElementById("test-mnemonic").value.trim().replace(/\s+/g, " ");
+      const passphrase = document.getElementById("test-passphrase").value;
+      const resultBox = document.getElementById("test-result");
+      resultBox.style.display = "block";
+
+      try {
+        const isValid = ethers.Mnemonic.isValidMnemonic(phrase);
+        if (!isValid) {
+          resultBox.style.color = "#f87171";
+          resultBox.innerHTML = "❌ GEÇERSİZ MNEMONIC: Kelime listesi veya BIP39 4-bit Checksum doğrulaması başarısız oldu (Ret).";
+          return;
+        }
+        const mObj = ethers.Mnemonic.fromPhrase(phrase, passphrase);
+        const entropy = mObj.entropy;
+        const seed = mObj.computeSeed();
+        const node = ethers.HDNodeWallet.fromSeed(seed).derivePath("m/44'/60'/0'/0/0");
+        resultBox.style.color = "#4ade80";
+        resultBox.innerHTML =
+          "✅ GEÇERLİ MNEMONIC (Kabul)<br>" +
+          "<strong>Çözülen Entropi:</strong> " + entropy + "<br>" +
+          "<strong>Üretilen Seed:</strong> " + seed + "<br>" +
+          "<strong>m/44'/60'/0'/0/0 Adresi:</strong> " + node.address;
+      } catch (err) {
+        resultBox.style.color = "#f87171";
+        resultBox.textContent = "❌ Hata: " + err.message;
+      }
+    }
+
+    function loadOfficialTestVector() {
+      // BIP39 Resmi İngilizce Test Vektörü #1 (Entropi: 0x00000000000000000000000000000000)
+      document.getElementById("test-mnemonic").value = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about";
+      document.getElementById("test-passphrase").value = "TREZOR";
+      verifyCustomMnemonic();
+    }
+  </script>
+</body>
+</html>

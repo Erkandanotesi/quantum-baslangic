@@ -16,3 +16,17 @@ Solidity: Ethereum'un akıllı kontratlarının yazıldığı oop programlama di
 
 Remix: Ethereum için akıllı kontratların Solidity kullanılarak yazıldığı uygulama/website.
 
+
+
+Kullanılan Araçlar: VS Code, Git, Node.js, npm, MetaMask, Remix IDE
+
+
+
+bana yeni olanlar: node.js
+
+nasıl kurdum: https://nodejs.org/en/download sitesinden setup ile.
+
+
+
+
+
