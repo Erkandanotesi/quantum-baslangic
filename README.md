@@ -4,9 +4,11 @@
 
 Kullanılan Araçlar: VS Code, Git, Node.js, npm, MetaMask, Remix IDE
 
-
-
 bana yeni olanlar: node.js
 
-nasıl kurdum: https://nodejs.org/en/download sitesinden setup ile.
+
+
+Remix de Etherscan de sözleşmenin barındığı yer değildir. ikisi yalnızca tarayıcıda çalışan birer arayüzdür.
+
+İkisi de sözleşmenin adresi ve ABI bilgisini kullanarak, çağrılacak fonksiyonu EVM'in anlayacağı Input Data verisine dönüştürür. Hazırlanan bu işlemi MetaMask'e iletir. MetaMask özel anahtarla imzalayıp bağlı olduğu Sepolia RPC üzerinden Sepolia blokzincirine gönderir. Arayüz değişse de hedef ağ ve kod aynı olduğu için işlem zincirde aynı şekilde çalışır.
 

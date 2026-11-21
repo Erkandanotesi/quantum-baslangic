@@ -553,9 +553,9 @@ Ethereum üzerindeki işlemleri ZK teknolojisi ile gizlemeye yarıyor.
 
 Gizlilik isteyen ancak ağın şeffaf yapısından dolayı işlemlerini gizleyemeyen kişiler için EVM uyumlu tüm ağlara uygulanabilen bir çözüm.
 
-RAIL token sadece sisteme yapılacak güncellemeleri onaylamak için işe yarıyor. güvenlik mekanizmasında doğrudan rolü yok. 
+RAIL token sadece sisteme yapılacak güncellemeleri onaylamak için işe yarıyor. güvenlik mekanizmasında doğrudan rolü yok.
 
-kullanıcının adresiyle yapılan işlemi, 0zk adresiyle yapıp işlemi gizliyor. bunun yaparken Tornado Cash gibi projelerin aksine mixing yapmıyor. 
+kullanıcının adresiyle yapılan işlemi, 0zk adresiyle yapıp işlemi gizliyor. bunun yaparken Tornado Cash gibi projelerin aksine mixing yapmıyor.
 
 Yasal sorunlar için mekanizmaları var:
 
@@ -607,7 +607,7 @@ RPC Sağlayıcısı (Veri Sağlayıcısı): kullanıcı kendi düğümünü çal
 
 RAIL stake edenler yönetimde kötü niyetli güncelleme yapabilir.
 
-her şey zk teknolojisi sayesinde matematiksel kanıtlarla işlenir. mesela Broadcasterlar kullanıcının varlıklarını tutmaz, işlemin içeriğini göremez, herhangi bir işleme müdahale etmek isteseler zk-SNARK geçersiz olur ve sistem reddeder. 
+her şey zk teknolojisi sayesinde matematiksel kanıtlarla işlenir. mesela Broadcasterlar kullanıcının varlıklarını tutmaz, işlemin içeriğini göremez, herhangi bir işleme müdahale etmek isteseler zk-SNARK geçersiz olur ve sistem reddeder.
 
 
 
@@ -914,4 +914,68 @@ Input Data, sözleşmeye ne göndermek istediğimi gösterir
 Event: İşlem çalışırken hangi olay gerçekleştiyse onu log olarak yazar.
 
 Mevcut State: Sözleşmenin güncel hafızasında ne kayıtlı ise onu verir. (adresin güncel olarak kayıtlı olup olmadığını ve güncel ismi gösterir).
+
+
+
+
+
+
+
+## İP 18
+
+
+
+etherscan link: https://sepolia.etherscan.io/address/0x15df0c408dd7617cf0a3140d4f10ba7def5275f3
+
+Sözleşme adresi: 0x15Df0c408DD7617CF0A3140d4F10BA7Def5275f3
+
+deploy tx hash: 0x6bd28355d5799213dc9ebf1865e613f2ab2d8c8ac639172d277bf96aa5a72130
+
+derleyici versiyonu: v0.8.24+commit.e11b9ed9
+
+OPTIMIZATION ENABLED: No
+
+EVM: cancun
+
+LICENSE: none
+
+
+
+Deploy ve AtAddress farkı
+
+Deploy: Sözleşmenin bytecode'unu blokzincire sıfırdan yayınlar ve yeni bir sözleşme adresi oluşturur. gas ücreti gerektirir. tamamen boş bir state oluşturur.
+
+At Address: zaten var olan bir sözleşme adresini, Remix'teki derlenmiş ABI ile eşleştirip açar. zincire işlem göndermez, gas ücreti gerektirmez. Mevcut sözleşme adresinin zincirdeki güncel state'ine bağlanır.
+
+
+
+verify kanıtlarını görsel olarak ekledim.
+
+
+
+Benim yorumum: Her bir sözleşmenin kendi depolaması vardır. kod birebir aynı olsa bile veriler ayrı depolamada tutulur, birbirine karışmaz.
+
+
+
+
+
+
+
+## İP 19
+
+
+
+benim sözleşmemdeki TX hash: 0xf37fa54c13a0973e025ce97656c4a2dd170ad53dddfbbd3a977592eb44c4ee95
+
+takımdaki tx hash: 0x11c7ba343102fc02fae2835827a9952bf0d2d33786da57db82a5f89ad157eda3
+
+
+
+Benim yorumum: hem takımın kodunda hem de benim kopyaladığım kodda ikinci kez kaydetme engellemesi var. ancak depolamalar yani state'ler farklı olduğu için takımın sözleşmesine 1. kaydı ekledikten sonra kendi sözleşmeme eklediğim kayıt 2. kayıt değil,  yine 1. kayıt olur. 
+
+
+
+
+
+
 
