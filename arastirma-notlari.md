@@ -1,8 +1,342 @@
+## İP 1
+
+
+
+Blokzincir: Bloklardan oluşan, her bloğun kendinden önceki blok ile matematiksel olarak bağlı olduğu zincir yapısındaki veri yapısı.
+
+İşlem: Defterdeki en küçük değişime işlem denir.
+
+Blok: belli bir zaman aralığındaki tüm işlemleri, bilgileri içeren pakettir. her blok, bir önceki bloğun hashi ile tekrar hashlenir. böylece zincir oluşur.
+
+
+
+işlem -> blok -> blokzincir -> distributed ledger
+
+
+
+Merkezi veritabanıyla blokzincir arasındaki fark
+
+Merkezi sistemlerde tam yetkili bir yönetici bulunur. blokzincirde ise append-only yani sadece ekleme işlemi yapılabilir. tek kişi değil konsensüs yönetir.
+
+
+
+Geçmiş işlemin kaydı ile sözleşmede tutulan güncel değerin değişmesi ayrımı: geçmiş işlem immutable olmalı. Güncel değer yeni blok ile sonrasına eklenir. eski bloklar değişmez.
+
+
+
+Bir etkinlik kayıt sisteminde blokzincir kullanmanın yararı/ek maliyeti
+
+yararı: güvenlik. bilet sahipliği tek bir kişi tarafından değiştirilemez.
+
+ek maliyet: gas fee, uzun onay süresi, hata durumunda geri dönüş olmaması vs. vs.
+
+
+
+Normal veritabanı ne zaman tercih edilmeli: taraflar birbirine tamamen güveniyorsa dağıtık deftere gerek kalmaz. o zaman blokzincir yerine geleneksel veritabanı da iş görür.
+
+
+
+## İP 2
+
+
+
+• Node ve validator nedir? Her node blok üretir mi?
+
+Node: dağıtık defteri depolayan ve doğrulayan her bir parçaya node denir. her biri kendi defterini tutar.
+
+Validator: özellikle PoS'te yeni blok öneren veya önerilmiş blokları doğrulayan node'lara denir. her node validator değildir, mesela PoS'te validator olmak için belli bir miktar stake edilmesi gerekir. yani her node blok üretmez, bloğu validator/madenci üretir.
+
+
+
+• Konsensüs neyi sağlar? PoW ve PoS’un temel yaklaşımları nasıl farklılaşır?
+
+Konsensüs: Blokzincirin işlemlerin nasıl doğrulanacağını belirleyen kurallar bütünü. hangi defterin doğru olduğunu belirler, çatallanmayı veya çifte harcamayı engeller. mesela Proof of Stake bir konsensüstür. veya projemizde kullanılan Proof of Authority.
+
+Proof of Stake ve Proof of Work farkı: PoS'te bir blok önerebilmek için belli bir miktar stake etmek gerekir. PoW'te ise iş kanıtı yani işlem gücü gerekir. Proof of stake varlık kanıtı, proof of work ise fiziksel donanım gerektirir. eğer biri PoS'te yanlış bir şey yaparsa stake miktarı yakılarak cezalandırılır, PoW'te ise devasa işlem gücü gereksinimi caydırıcılık olarak kullanılır.
+
+
+
+• Public/private ve permissionless/permissioned ağ kavramları hangi özellikleri anlatır? Okuma, işlem gönderme ve doğrulayıcı olma izinlerini ayırın.
+
+Public: Herkese açık ağ demektir. herkes her işlemi okuyabilir.
+
+Private: Özel ağ demek. sadece yetkilendirilmiş kişiler ağı okuyabilir. Proof of Authority kullanan ağlar bunun güzel bir örneğidir.
+
+Permissionless: şartları sağlayan herkes node olup işlem gönderebilir/validator olabilir.
+
+Permissioned: Sadece yetkilendirilmiş kişiler işlem gönderebilir. public ise herkes, private ise yetkililer işlemleri okuyabilir.
+
+
+
+• İşlemin bloğa alınması, başarılı çalışması ve kesinleşmesi neden farklıdır?
+
+İşlemin bloğa alınması: İşlemin bellek havuzundan seçilerek bir bloğun içine dahil edilmesidir. işlemin başarılı olduğunu garanti etmez. başarısız olan işlemler de gas harcadıkları için bloğa yazılır.
+
+Başarılı Çalışması: işlemin sanal makinede (mesela EVM) hata vermeden succes durumuna ulaşması.
+
+Kesinleşmesi: İşlemin bloğunun artık geri döndürülemeyecek şekilde sonuçlanmasıdır. PoW'te üzerine yeni bloklar eklendikçe geri dönme ihtimali sıfıra yaklaşır. Ethereum PoS'te ise validator oylamalarıyla birkaç dakika içinde finalize olur.
+
+
+
+Benim Yorumum: Ağın konsensüs yapısına bağlıdır. yeterli validator olmazsa sistem kilitlenir. mesela Proof of authority'de 2/3 onay gerekir, bir node kapanınca sistem çoğunluğa ulaşamıyorsa sistem blok onaylayamaz hale gelir.
+
+
+
+## İP 3
+
+
+
+• Hash, şifreleme ve dijital imza hangi farklı amaçlarla kullanılır?
+
+**Hash:** Tek yönlüdür. İşlemin kriptografik özetini verir. temel amacı veri bütünlüğünü doğrulamaktır.
+
+Şifreleme: çift yönlüdür, veri gerekli anahtar ile eski haline getirilebilir.
+
+dijital imza: işlemi yapan kişinin onayladığını kanıtlamak, veri bütünlüğünü doğrulamak için kullanılır.
+
+
+
+• Private key, public key, adres, mnemonic ve seed arasındaki ilişki nedir?
+
+Mnemonic: 256 bitlik rastgele verinin, insanların hatasız okuyup yedekleyebilmesi için standart sözlükten 12 kelimeye çevrilmiş hâlidir.
+
+Seed: Mnemonic kelimelerinin SHA512 gibi fonksiyondan 2048 tur geçirilmesiyle üretilen 512 bitlik ana tohumdur; cüzdandaki tüm hesapların ortak köküdür.
+
+Private Key: Seed'den türetme yolu izlenerek üretilen 256 bitlik anahtardır. Bir hesabın işlemlerini imzalama ve varlıklarını harcama yetkisini verir.
+
+Public Key: Private key ile secp256k1 eliptik curve üzerinde skaler çarpma yapılarak tek yönlü elde edilen açık anahtardır. dijital imzaların doğrulanmasında kullanılır.
+
+Adres: Public key'in Keccak-256 özetinin son 20 baytının alınıp, EIP-55 formatıyla biçimlendirilmesiyle oluşan 0x... kimliğidir.
+
+
+
+**Entropi -> Mnemonic -> Seed -> Private key -> public key -> adres**
+
+
+
+• Entropi ve checksum ne işe yarar? BIP39, BIP32 ve BIP44 hangi aşamalarla ilgilidir?
+
+Entropi: tahmin edilemez ham rastgelelik kaynağıdır. Anahtarların güvenliğini sağlar.
+
+Checksum: Yazım ve aktarım hatalarını tespit etmek için verinin özetinden türetilen doğrulama bilgisidir. 12 kelimelik mnemonicte entropinin SHA-256 özetinin ilk 4 biti checksum olarak eklenir. Ethereum adreslerinde checksum yanlış karakter yazımını yakalamaya yardımcı olur.
+
+
+
+BIP: bitcoin improvement proposal demektir. geliştiriciler toplulupa önerir, onaylanırsa standart haline gelir. EIP ise ethereum için olanı.
+
+BIP39: Hem entropinin checksum eklenerek 12 kelimelik mnemonic dizisine dönüştürülmesini, hemde bu kelimelerden 512 bitlik seed hesaplanmasını sağlar.
+
+BIP32: Tek bir seed üzerinden, Hiyerarşik Deterministik ağaç yapısıyla sınırsız sayıda anahtar çiftinin nasıl türetileceğini belirler.
+
+BIP44: BIP32 ağacı üzerinde çoklu ağ ve çoklu hesap yönetimini standartlaştıran yol şemasını (m/44'/60'/0'/0/0 gibi) tanımlar.
+
+
+
+• Cüzdan uygulaması ile hesap aynı şey midir?
+
+Hayır. Hesap ve ona bağlı kayıtlar blokzincirde tutulur. Cüzdan uygulaması ise (ör. MetaMask) parayı saklayan fiziksel cüzdan değildir. blokzincirdeki hesabı görüntülemeyi sağlayan, özel anahtarları yerelde koruyan, işlemleri imzalayan bir arayüzdür. aynı 12 kelime kullanılırsa aynı hesap farklı cüzdan uygulamalarıyla açılabilir.
+
+
+
+• Adresi paylaşmakla anahtarı paylaşmak neden farklıdır?
+
+Adresi paylaşmak, banka IBAN'ı vermek gibidir. tek yönlü kriptografik türetme nedeniyle adresten özel anahtar hesaplanamaz, dolayısıyla kimseye harcama yetkisi vermez.
+
+Özel anahtarı paylaşmak ise hesaptaki tüm varlıkları ve yetkilerini kontrol etme hakkını devretmektir.
+
+
+
+• Adres Paylaşımının Mahremiyet Etkisi Var mıdır?
+
+Evet. Bir adres gerçek kimlikle eşleştiği anda, herkes o adresin tüm geçmiş gelecek bakiyelerini, transferlerini, etkileşime girdiği sözleşmeleri ve bağlantılı olduğu adresleri Etherscan gibi sitelerden izlenebilir.
+
+
+
+Benim yorumum: Cüzdan uygulamasının silinmesi ve kurtarma bilgisinin kaybolması farkı
+
+Cüzdan uygulaması sadece hesabı kontrol etmek için bir arayüzdür. dolayısıyla uygulamayı silmek hesabı etkilemez. varlıklar uygulamada değil blokzincirdedir.
+
+kurtarma bilgisini kaybetmek ise hesaba olan erişimi tamamen kaybetmeye yol açar. merkeziyetsiz ağlarda "şifremi unuttum" yoktur.
+
+
+
+
+
+
+
+## İP 4
+
+
+
+• Bitcoin ve Ethereum’un temel amaçları ve programlanabilirliği nasıl farklılaşır?
+
+Bitcoin: Temel amacı merkezi bir aracı olmadan çalışan P2P dijital para ve değer saklama aracı olmaktır.
+
+Ethereum: Temel amacı, merkeziyetsiz uygulamaların (dApp) çalıştırılabildiği, programlanabilir bir platform olmaktır. EVM üzerinde akıllı sözleşmeler çalıştırabilir, Bu nedenle sadece para transferi değil, finansal protokoller gibi karmaşık işler doğrudan zincire kodlanabilir.
+
+
+
+• Native varlık ve token nedir?
+
+Native Varlık (ETH): blokzincir protokolünün kendi çekirdeğine yerleşik olan ana varlıktır. Ağda gas fee ödemek gibi işlemler için kullanılır. ETH, Ethereum ağının native varlığıdır.
+
+Token (USDC): Kendi blokzinciri olmayan, başka blokzincir üzerindeki bir akıllı sözleşme tarafından üretilen varlıktır. bakiye kayıtları bu sözleşmenin içinde bulunur.
+
+USDC, Ethereum ağı üzerinde bir tokendır. gas ücreti ağın yerel varlığı olan ETH ile ödenir.
+
+
+
+• Stablecoin, NFT ve ERC-20 kavramları neyi ifade eder?
+
+ERC-20: Ethereum ağında birbirinin yerine geçebilen (fungible) token'ların uyduğu akıllı sözleşme standardı. tüm uygulamaların farklı tokenlarla tek standart ile konuşmasını sağlar.
+
+
+
+Stablecoin (Stabil Varlık): fiyatı başka bir varlığa sabitlenmesi amaçlanan token türüdür.
+
+
+
+NFT: Her biri benzersiz kimliğe sahip olan, başka bir şeyle birebir eşdeğer olmayan ve bölünemeyen token türüdür.
+
+
+
+• Mainnet ve testnet neden ayrılır? Test ETH ve test USDC gerçek varlıklarla aynı ekonomik değeri taşır mı?
+
+Mainnet: Gerçek işlemlerin yapıldığı ana ağdır. burada yapılan yanlış işlem gerçek maddi kayıp doğurur.
+
+Testnet: akıllı sözleşmelerin gerçek para riske atmadan denenebilmesi için ana ağın teknik işleyişini taklit eden deneme ağıdır (mesela Ethereum Sepolia bir testnettir).
+
+İki ağın ayrılması, canlı ağın gereksiz deneme işlemleriyle dolmasını, test aşamasındaki hataların gerçek fonlara zarar vermesini engeller.
+
+Ekonomik değer: Hayır taşımaz. Test ETH ve USDC sadece test amaçlı olarak ücretsiz edinilen deneme varlıklardır. gerçek ekonomik değer taşımazlar, mainnetteki gerçek ETH/USDC yerine kullanılamazlar.
+
+
+
+Benim yorumum: Etkinliğe giriş hakkını temsil etmek için mutlaka token gerekir mi?
+
+hayır. etkinliğe giriş hakkı yapılan satın alma işleminin doğrulanması ile de kanıtlanabilir.
+
+Token kullanmak ancak giriş hakkının başka birine devredilmesi gibi durumlar için gerekebilir.
+
+
+
+
+
+
+
+## İP 5
+
+
+
+• Akıllı sözleşme, EVM ve state nedir?
+
+Akıllı Sözleşme: Blokzincirde saklanan, kuralları ve fonksiyonları olan, geçerli bir işlemle çağrıldığında deterministik (her düğümde aynı sonucu verecek) biçimde çalışan kod bütünü.
+
+EVM: Ethereum ağındaki akıllı sözleşmelerin kodlarını donanımdan bağımsız aynı kurallarla çalışmasını sağlayan sanal ortam.
+
+State (Durum): Blokzincirdeki tüm verilerin belirli bir bloktaki güncel durumu.
+
+
+
+• Kaynak kod, derleme ve bytecode nasıl ilişkilidir? Deploy ne yapar?
+
+Kaynak Kod: Geliştiricinin yazdığı akıllı sözleşmenin kodudur. genelde yüksek seviye dillerle yazılır, derleme aşamasında düşük seviyeye dönüşür.
+
+Derleme: Derleyicinin kaynak kodu kontrol edip EVM'in çalıştırabileceği düşük seviyeli koda (bytecode) dönüştürme işlemi.
+
+Bytecode: Derleme sonunda üretilen, EVM tarafından yürütülen hexadecimal makine kodu. Blokzincire yazılan şey Solidity kaynak kodu değil, bu bytecode olur.
+
+Deploy: Derlenmiş bytecode'u alıcı adresi boş bırakılmış özel bir işlemle ağa göndermektir. İşlem onaylandığında ağ bu sözleşmeye benzersiz bir sözleşme adresi atar, bytecode'u o adrese kalıcı olarak yerleştirir ve sözleşmeyi dış çağrılara açar.
+
+
+
+• ABI ne işe yarar? Ne zaman elde edilir? Bir sözleşmenin adresi dışında hangi arayüz bilgilerine ihtiyaç duyabilirsiniz?
+
+ABI (Application Binary Interface): Bir web uygulamasının, Remix'in veya Etherscan'in, zincirdeki bytecode ile nasıl konuşacağını tanımlayan (genellikle JSON formatındaki) arayüz sözleşmesidir. Hangi fonksiyonların, parametre tiplerinin, dönüş değerlerinin ve event'lerin bulunduğunu bildirir. insan okunabilir fonksiyon çağrılarını EVM'in anladığı binary/hex biçimine kodlamak ya da dönen veriyi tekrar okunabilir hâle çözmek için kullanılır.
+
+Ne Zaman Elde Edilir? compile anında derleyici tarafından üretilir.
+
+Sözleşme Adresi Dışında Gereken Arayüz Bilgileri: Sadece adres o adreste hangi fonksiyonların olduğunu söylemez. Sözleşmeyle etkileşime geçmek için adresin yanında ABI, sözleşmenin hangi ağda bulunduğu (ör. Ethereum Sepolia) ve o ağa ulaşmak için bir RPC bağlantısı gerekir.
+
+
+
+• Veri okumak ile state değiştiren işlem göndermek nasıl ayrılır?
+
+Veri okuma: Yalnızca mevcut state'i okur, blokzincirde hiçbir değişiklik yapmaz. gas ücreti gerektirmez. yerelde çalışır. anında sonuç döner, onay gerekmez.
+
+State değiştiren işlem: Sözleşmenin kalıcı hafızasını (state) değiştirir veya yeni kayıt üretir. gas ücreti gerektirir. Ağa yayınlanır, validator tarafından bloğa alınır ve tüm nodelar tarafından yürütülür. onay beklemesi gerekir.
+
+
+
+• Kaynak kodu verify etmek neyi doğrular? Güvenlik denetimiyle aynı şey midir?
+
+Neyi doğrular: Solidity kaynak kodunun derleyici sürümü, zincirdeki sözleşme adresinde bulunan bytecode ile birebir eşleştiğini doğrular. Böylece ham bytecode yerine gerçek kaynak kodu okunabilir ve explorer üzerinden Read/Write Contract arayüzleri kullanılabilir.
+
+Güvenlik denetimi ile aynı şey mi: Hayır. Verify yalnızca şeffaflık ve kaynak kod–bytecode eşleşmesi sağlar. kodun saldırılara karşı güvenli olduğunu kanıtlamaz. İçinde güvenlik açığı veya backdoor bulunan bir sözleşme de kaynak kodu bytecode ile eşleşiyorsa verify edilebilir.
+
+
+
+Benim yorumum: Aynı kod iki farklı adrese yayınlanınca kayıtları neden ayrı olabilir?
+
+bloğa işlenen sözleşmelerin her biri farklı bir state yani depolama alanına sahip olduğu için adres farklıysa zincirdeki kayıtları da farklı olur.
+
+
+
+
+
+
+
+## İP 6
+
+
+
+• RPC ve RPC endpoint nedir? Node ve RPC hizmet sağlayıcısı ile ilişkileri nasıldır?
+
+RPC: Başka bir node'da bulunan fonksiyonu çağırarak veri okumak/işlem göndermek için yapılan çağrıya denir.
+
+RPC endpoint: isteğin gönderildiği ağ adresi (https urlsi). mesela: https://sepolia.infura.io/v3/
+
+Node ve RPC hizmet sağlayıcısı ile ilişkisi: blokzincir verisi node'da tutulur ve yüzlerce gb depolama gerektirir. RPC hizmet sağlayıcıları kendi node altyapıları üzerinden hazır RPC endpoint sunarak bu sorunu çözer.
+
+
+
+Uygulama -> RPC endpoint -> RPC sağlayıcısı -> blokzincir ağı
+
+
+
+• Block explorer nedir? Explorer’ın veya bir RPC adresinin kapanması ağın durduğunu gösterir mi?
+
+Block explorer: blok verilerini kendisi tarayıp kendi sisteminde insanlara sunan siteler. mesela Etherscan.
+
+Kapanması Ağın Durduğunu Gösterir mi: hayır. sadece sitenin sisteminin bloklara erişemediğini gösterir. sorun muhtemelen onların sistemindedir.
+
+
+
+• Event/log ile sözleşmenin güncel state’i nasıl ayrılır? Indexer ne işe yarar?
+
+log geçmiş sözleşme işlemlerini tutar. güncel state ise sözleşmenin en son halidir.
+indexer ne işe yarar: blok hiyerarşisinini daha düzenli ve taramaya uygun hale getiren araçlardır. hızlı sorgulanabilen bir veritabanında blokları düzenler ve API üzerinden sunar.
+
+
+
+Benim yorumum: Explorer olmadan bir kaydı kontrol etmek için hangi yolu araştırırdınız?
+
+RPC endpoint üzerinden sorgu yapmayı araştırdım. Bazı kütüphaneler buldum mesela ethers.js ve web3.py sözleşme adresi üzerinden eth\_call isteğiyle güncel state'i okuyor, eth\_getTransactionReceipt ve eth\_getLogs metotları ise işlemin başarı durumunu ve event kayıtlarını buluyor.
+
+
+
+
+
+
+
 ## İP 7
 
 
 
+• Cüzdan bağlamak, mesaj imzalamak ve işlem göndermek hangi farklı işlemlerdir?
+
 Cüzdan bağlamak, uygulamaya yalnızca public adresi ve ağ bilgisini okuma izni vermektir. zincirde hiçbir şey yapılmaz.
+
 
 
 mesaj imzalamak, offchain bir veriyi kendi private anahtarımızla doğrulamak için yapılır. zincire veri eklenmez.
@@ -13,7 +347,7 @@ işlem göndermek, kendi private keyimizle transfer yapmak veya akıllı sözle�
 
 
 
-
+• Gas limit, gas used, işlem ücreti, nonce ve chain ID ne işe yarar?
 
 Gas Limit: Bir işlemin maksimum harcayabileceği Gas yani hesaplama miktarıdır..
 
@@ -23,13 +357,13 @@ Gas Used: harcanan gerçek gas miktarıdır. Kullanılmayan gas cüzdanına iade
 
 Nonce: Bir cüzdan adresinden gönderilen işlemlerin 0 dan başlayarak birer birer artan sıra sayacıdır. İşlemlerin doğru sırada işlenmesini sağlar, imzalanmış bir işlemin ağda tekrar işlenmesini (replay attack) engeller.
 
-Chain ID: İşlemin hangi blokzincir ağı için geçerli olduğunu tanımlayan ağ numarasıdır. Bir test ağında imzalanan işlemin başka bir ağda tekrar işlenmesini önler.  
+Chain ID: İşlemin hangi blokzincir ağı için geçerli olduğunu tanımlayan ağ numarasıdır. Bir test ağında imzalanan işlemin başka bir ağda tekrar işlenmesini önler.
 
 
 
-Txid / Transaction Hash, Sözleşme Adresi ve Block Hash
+• Txid/transaction hash, sözleşme adresi ve block hash neyi tanımlar?
 
-Transaction Hash: İmzalanmış tek bir işlemin kriptografik özetidir. 
+Transaction Hash: İmzalanmış tek bir işlemin kriptografik özetidir.
 
 Sözleşme Adresi: Bir akıllı sözleşmenin ağa yayınlandığında aldığı 20 baytlık adresidir.
 
@@ -37,7 +371,7 @@ Block Hash: Bloğun içindeki işlemlerin kriptografik özeti. önceki bloğun b
 
 
 
-Pending, receipt ve status nedir? İşlem hash’i neden tek başına başarı kanıtı değildir? 
+• Pending, receipt ve status nedir?
 
 Pending: İşlemin ağa iletildiğini ancak henüz bir bloğa dahil edilmediğini gösterir.
 
@@ -47,9 +381,9 @@ Status: Receipt içinde, işlemin çalışma sonucunu bildiren alan (Success vey
 
 
 
-Tx Hash Neden Tek Başına Başarı Kanıtı Değildir?
+İşlem hash’i neden tek başına başarı kanıtı değildir?
 
-hash işlem cüzdanda imzalandığı anda üretilir. Pending veya failed olabilir ama hash üretilmiştir. Gerçek başarı yalnızca receipt içindeki Status: Success kontrolüyle kanıtlanır.
+hash işlem cüzdanda imzalandığı anda üretilir. Pending veya failed olabilir ama hash üretilmiştir. başarı yalnızca receipt içindeki Status: Success kontrolüyle kanıtlanır.
 
 
 
@@ -59,65 +393,63 @@ hash işlem cüzdanda imzalandığı anda üretilir. Pending veya failed olabili
 
 \[İmzalama]
 
-&#x20;  Kullanıcı hedef adres, veri , gas ve ağ bilgilerini onaylar.
+Kullanıcı hedef adres, veri , gas ve ağ bilgilerini onaylar.
 
-&#x20;  işlem private key ile imzalanır ve Tx Hash üretilir.
+işlem private key ile imzalanır ve Tx Hash üretilir.
 
 
 
 |
 
-v      
+v
 
 
 
 \[Broadcast]
 
-&#x20;  İmzalı işlem RPC üzerinden Ethereum nodelarına iletilir.
+İmzalı işlem RPC üzerinden Ethereum nodelarına iletilir.
 
-&#x20;  (İP 17 Güncellemesi: benim Tx Hash im: 0x11c7ba343102fc02fae2835827a9952bf0d2d33786da57db82a5f89ad157eda3)
+(İP 17 Güncellemesi: benim Tx Hash im: 0x11c7ba343102fc02fae2835827a9952bf0d2d33786da57db82a5f89ad157eda3)
 
 
 
 |
 
-v      
+v
 
-&#x20;       
+
 
 \[Pending]
 
-&#x20;  İşlem validatorlar tarafından seçilmeyi bekler.
+İşlem validatorlar tarafından seçilmeyi bekler.
 
 
 
 |
 
-v      
+v
 
-&#x20;       
+
 
 \[Execution]
 
-&#x20;  Validator işlemi bir bloğa ekler ve EVM üzerinde çalıştırır.
+Validator işlemi bir bloğa ekler ve EVM üzerinde çalıştırır.
 
-&#x20;  (İP 17 Güncellemesi: Blok no: 12169777, To: 0x81Dd700C459BF2806A1B5F2a349c89f0106A9036, register("erkankarahan"))
+(İP 17 Güncellemesi: Blok no: 12169777, To: 0x81Dd700C459BF2806A1B5F2a349c89f0106A9036, register("erkankarahan"))
 
-&#x20;       
+
 
 |
 
-v      
+v
 
 \[Receipt \& State]
 
-&#x20;  Receipt ve state kontrol edilir:
+Receipt ve state kontrol edilir:
 
-&#x20;  - Status: Success
-
-&#x20;  - Logs: Registered event'i doğrulandı
-
-&#x20;  - Read Contract: kayitliMi -> true
+* Status: Success
+* Logs: Registered event'i doğrulandı
+* Read Contract: kayitliMi -> true
 
 
 
@@ -125,9 +457,179 @@ Benim yorumum: “İşlem başarısız” ile “sonucunu öğrenemedim” neden
 
 İşlem başarısız demek, İşlemin bir bloğa dahil edildiği ancak bir kural ihlali veya gas yetersizliği iptal edildiği anlamına gelir. receipt üzerinden görülebilir.
 
-sonucunu öğrenememek ise: İnternet kopması, RPC sağlayıcısının yanıt vermemesi veya başka bir nedenle işlemin son durumunun bilinmemesi. Bu durumda işlem başarıyla onaylanmış ya da pending aşamasında olabilir. 
+sonucunu öğrenememek ise: İnternet kopması, RPC sağlayıcısının yanıt vermemesi veya başka bir nedenle işlemin son durumunun bilinmemesi. Bu durumda işlem başarıyla onaylanmış ya da pending aşamasında olabilir.
 
 İki durumu ayırmak önemli. çünkü sonucu henüz doğrulanamamış bir işlemi başarısız oldu sanıp tekrar göndermek, aynı işlemin iki kez çalışmasına veya gereksiz gas harcanmasına yol açar.
+
+
+
+
+
+
+
+## İP 8
+
+
+
+• Web3, L1/L2, DeFi, DAO, oracle, bridge ve zero-knowledge proof (ZK) kavramlarını birkaç cümleyle açıklayın
+
+Web3: Web2.0'ın yerini alacak olan, internetin merkeziyetsiz ve izinsiz erişilebileceği durumunun adı.
+
+L1: Blokzincir ağının kendisi L1 katmanı olur. mesela Bitcoin ve Ethereum L1 projeleridir.
+
+L2: Ana blokzincir ağının yani L1'in üstüne inşa edilen katman. mesela Tether Ethereum üzerinde inşa edilmiş bir L2 projesidir.
+
+DeFi: Geleneksel finans sistemi tamamen merkezi kurumlardan oluşur. mesela bankaların verileri merkezlerinde yönetilir. Ancak DeFi'da tek bir merkez yoktur. node'lar birlikte hareket ederek merkeziyetsiz bir finans mekanizması oluşturur. takas, borç veya likidite sağlama gibi finansal işlemler herkese açık, şeffaf akıllı sözleşmelerle sağlanır.
+
+DAO: merkeziyetsiz şekilde yönetilen kurumlar. bu kurumlarda yönetim mekanizması dağıtıktır. mesela proof of authority ile yönetiliyorsa taraflar 2/3 oranında çoğunlukla ortak karar alabilir.
+
+Oracle: zincir dışındaki gerçek dünya verilerini doğrulayıp zincire aktaran köprü. (örn: Chainlink)
+
+Bridge: Farklı ağlar (ör. Ethereum ile Arbitrum) arasındaki iletişimi sağlayan protokollerdir.
+
+Zero-Knowledge Proof: bilginin kendisini vermeden o bilgiye sahip olduğunu veya doğru olduğunu kanıtlama yöntemi.
+
+
+
+• Dijital kimlik, gerçek dünya varlıklarının temsili (RWA) ve fiziksel altyapı ağları (DePIN) için birer kullanım örneği bulun
+
+
+
+Dijital kimlik örneği: Estonya araştırdığım kadarıyla dijital kimliğe geçen öncü ülkelerden. Kimliğin içinde private key var ve işlemler bu key ile imzalanabiliyor. X-Road adını verdikleri dağıtık bir sistem kullanıyorlar bu sistemde kurumlar sadece kendi verisini tutuyor ve iletişimi bu X-road kanalından yapıyorlar.
+
+KSI blockchain denilen bir sistem de icat etmişler: verilerin bütünlüğünü ile varlık zamanını kriptografik olarak kanıtlayan yüksek ölçekli bir blokzincir teknolojisi.
+
+Ama vatandaşların kişisel verileri zincirde değil. işlemlerin doğrulanması için hash tutan bir dağıtık defter sistemi bu.
+
+
+
+RWA örneği: Dünyanın en büyük varlık yönetim şirketi olan BlackRockun projesi. BUIDL adındaki projesiyle kurumsal fonu blokzincire 1 dolara sabitli token olarak taşıyorlar. elde ettikleri parayla ABD hazine bonoları alıyorlar. fonu alanlara da bu tahvil gelirini dağıtıyorlar.
+
+
+
+DePin: gerçek dünya altyapılarını topluluk eliyle kuran ve işleten ağ modeli. örneği: Helium ağıyla bölgesel kablosuz/IoT kapsama alanı sağlanıyor.
+
+
+
+• ZK ile neyin kanıtlandığını ve hangi bilginin saklanabildiğini basit bir örnekle anlatın.
+
+ZK ile ne kanıtlanıyor: Bilginin doğru olup olmadığı kanıtlanıyor. ancak bunu yaparken bilginin kendisini açığa çıkartmıyor.
+
+hangi bilgi saklanabiliyor: mesela açık arttırmada ürünü almam için yeterli param var mı kontrol etmeleri gerek diyelim. paramın miktarını saklayarak yeterli paramın olduğunu kanıtlayabilirim.
+
+
+
+“ZK kullanılıyor” ifadesi bütün işlemlerin gizli olduğu anlamına gelir mi?
+
+zk kullanımı iki farklı şekilde yapılır: ya tam gizlilik için, ya da hız/ucuzluk için gizlilik olmadan işlemi kanıtlamak için kullanılır. eğer ikincisi içinse işlem bilgileri de zincire işlenir, sadece doğrulama maliyetini azaltmak için ZK kullanılır.
+
+
+
+Benim yorumum: Hangi alanı daha sonra öğrenmek istersiniz ve neden?
+
+açıkçası hepsi birbirinden ilginç ve güzel. ama en çok ZK teknolojisi ilgimi çekiyor. bir mucize gibi geliyor bana bilgiyi vermeden kanıtlayabilmek.
+
+
+
+
+
+## İP 9
+
+
+
+Seçtiğim Proje: Railgun.
+
+
+
+1. dökümantasyonlar
+
+https://railgun.org/
+
+https://docs.railgun.org/wiki
+
+2\.  Hangi problemi, kimler için çözüyor
+
+Ethereum üzerindeki işlemleri ZK teknolojisi ile gizlemeye yarıyor.
+
+Gizlilik isteyen ancak ağın şeffaf yapısından dolayı işlemlerini gizleyemeyen kişiler için EVM uyumlu tüm ağlara uygulanabilen bir çözüm.
+
+RAIL token sadece sisteme yapılacak güncellemeleri onaylamak için işe yarıyor. güvenlik mekanizmasında doğrudan rolü yok. 
+
+kullanıcının adresiyle yapılan işlemi, 0zk adresiyle yapıp işlemi gizliyor. bunun yaparken Tornado Cash gibi projelerin aksine mixing yapmıyor. 
+
+Yasal sorunlar için mekanizmaları var:
+
+&#x09;Private Proofs of Innocence (PPOI): yüksek riskli fonları tespit edip gizlilik havuzundan 	dışlar.
+
+&#x09;Viewing Keys: gerekirse paylaşılabilen işlem görüntüleme anahtarı.
+
+
+
+Gas ücreti Community Broadcaster adı verilen cüzdanlardan ödeniyor ki Etherscan gibi sitelerde kimlik eşleme yapılamasın. işlem zincirde Broadcaster'ın 0x adresinden gelmiş gibi görünür.
+
+
+
+
+
+3- Zincirde yapılan işlemlerle zincir dışındaki hizmetleri ayırın
+
+Zincirde yapılanlar:
+
+&#x09;Shielding/Unshielding (tokenların private zk cüzdanına girmesi/çıkması)
+
+&#x09;Shielding sonrası DeFi işlemleri
+
+&#x09;Merkle Tree durumunun tutulması (mesela UTXO harcanmamış kalan paranın işlenmesi)
+
+&#x09;zk-SNARK kanıtlarının akıllı sözleşmeler tarafından doğrulanması
+
+off-chain olanlar:
+
+&#x09;zk-SNARK kanıt üretimi
+
+&#x09;Broadcaster iletişimi (Waku P2P ağı ile)
+
+&#x09;
+
+4. Neden blokzincir kullandı ve normal bir veritabanıyla yapılsaydı ne değişirdi
+
+Protokolün amacı işlemlerin gizliliğini sağlamak. geleneksel veritabanı ile yapılan işlemlerin birçok dezavantajı var. doğrulanması sıkıntı, erişimi olan değiştirebilir, veri kolayca yok edilebilir.
+
+Railgun EVM üzerinde akıllı sözleşme olarak çalışıyor. bu sayede emanetçi olmadan (non-custodial) hem gizlilik sunuyor, hem de ayrı bir zincire çıkmadan DeFi likiditesine (takas, borç verme vb.) doğrudan bağlanabiliyor.
+
+
+
+5\. Kullanıcı yöneticiye, işletmeciye veya veri sağlayıcısına hangi konularda güvenir?
+
+Resmi cüzdan sağlayıcısı olmadığı için 3. taraf cüzdanlar (railway, faceless vb.) kullanılır. kullanıcı bu 3. taraf cüzdanların private keyi koruduğuna, kötü niyetli olmadığına ve log tutmadığına güvenmeli.
+
+RPC Sağlayıcısı (Veri Sağlayıcısı): kullanıcı kendi düğümünü çalıştırmıyorsa kullandığı RPC servisi IP adresini, ne zaman işlem yaptığını görebilir.
+
+RAIL stake edenler yönetimde kötü niyetli güncelleme yapabilir.
+
+her şey zk teknolojisi sayesinde matematiksel kanıtlarla işlenir. mesela Broadcasterlar kullanıcının varlıklarını tutmaz, işlemin içeriğini göremez, herhangi bir işleme müdahale etmek isteseler zk-SNARK geçersiz olur ve sistem reddeder. 
+
+
+
+
+
+Benim yorumum: Projenin bir güçlü tarafı ve bir sınırlaması
+
+Güçlü tarafı: native olarak zk desteklemeyen zincirlere, çok akıllıca şekilde sistemin kurallarını etkilemeden zk teknolojisini entegre edebilmesi.
+
+Zayıf tarafı: sadece EVM uyumlu sistemlerde çalışır, gas maliyeti yüksektir. ve belki hızı sınırlayabilir?
+
+
+
+
+
+
+
+## İP 10
+
+
+
+
 
 
 
@@ -152,6 +654,14 @@ Push: Commit yerelde kayıt oluşturmuştu. bu ise bu kaydı uzak sunucuya kopya
 Solidity: Ethereum'un akıllı kontratlarının yazıldığı oop programlama dili.
 
 Remix: Ethereum için akıllı kontratların Solidity kullanılarak yazıldığı uygulama/website.
+
+
+
+Benim yorumum: Hangi araç size yeniydi? Kurulumda nasıl ilerlediniz?
+
+bana yeni olanlar: node.js
+
+nasıl kurdum: https://nodejs.org/en/download sitesinden setup ile.
 
 
 
@@ -249,7 +759,7 @@ Gelen işlem Tx hash: 0x635e45ad49d5523ab02eb737f2ba5764d8ce498505643770bac06b95
 PoW Faucet ve Ağ Konsensüsü Farkı
 Eğer PoW tabanlı bir faucet kullanıldıysa tarayıcının hash hesaplaması Sepolia ağında blok üretmek/işlem onaylamak için değildir.
 
-\- Ethereum Proof of Stake konsensüsü ile çalışır. PoW faucet'teki hesaplama botların/kötü niyetlilerin tek seferde tüm test ETH'lerini sömürmesini zorlaştırmak için faucet operatörünün koyduğu yapay bir hız sınırlama koşuludur.
+* Ethereum Proof of Stake konsensüsü ile çalışır. PoW faucet'teki hesaplama botların/kötü niyetlilerin tek seferde tüm test ETH'lerini sömürmesini zorlaştırmak için faucet operatörünün koyduğu yapay bir hız sınırlama koşuludur.
 
 
 
@@ -331,7 +841,7 @@ Kontrol Sitesi haloclineblockchain.vercel.app Durumu: sitede gördüm
 
 İkinci Kayıt Denemesi Gözlemi
 
-Aynı eğitim cüzdanıyla `register` fonksiyonu ikinci kez çağırdığımda gas estimation failed diyerek daha derleme sırasında hata verdi. yani ikinci kez gönderemiyoruz..
+Aynı eğitim cüzdanıyla register fonksiyonu ikinci kez çağırdığımda gas estimation failed diyerek daha derleme sırasında hata verdi. yani ikinci kez gönderemiyoruz..
 
 
 
@@ -359,7 +869,7 @@ Nonce: 2 (işlemin sırası)
 
 input data: hangi fonksiyonun hangi parametreyle çağrıldığını gösteren veri.
 
-&#x09;0	name	string	erkankarahan
+0	name	string	erkankarahan
 
 
 
@@ -368,12 +878,6 @@ Function: register(string name)
 
 
 MethodID: 0xf2c298be
-
-\[0]:  0000000000000000000000000000000000000000000000000000000000000020
-
-\[1]:  000000000000000000000000000000000000000000000000000000000000000c
-
-\[2]:  65726b616e6b61726168616e0000000000000000000000000000000000000000
 
 
 
@@ -387,9 +891,9 @@ Logs (Event): Registered eventinde adresim ve erkankarahan ismini doğruladım v
 
 Read Contract (Mevcut State):
 
-&#x20; kayitliMi(0x952B8633F2c1E66979b08968948c42511fAef3fb) sorgusu true döndürdü
+kayitliMi(0x952B8633F2c1E66979b08968948c42511fAef3fb) sorgusu true döndürdü
 
-&#x20; tumKayitlar çıktısında adresimin karşısında erkankarahan kaydını gördüm.
+tumKayitlar çıktısında adresimin karşısında erkankarahan kaydını gördüm.
 
 
 
@@ -410,6 +914,4 @@ Input Data, sözleşmeye ne göndermek istediğimi gösterir
 Event: İşlem çalışırken hangi olay gerçekleştiyse onu log olarak yazar.
 
 Mevcut State: Sözleşmenin güncel hafızasında ne kayıtlı ise onu verir. (adresin güncel olarak kayıtlı olup olmadığını ve güncel ismi gösterir).
-
-
 
