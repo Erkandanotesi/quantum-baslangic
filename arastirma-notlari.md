@@ -90,7 +90,7 @@ Benim Yorumum: Ağın konsensüs yapısına bağlıdır. yeterli validator olmaz
 
 **Hash:** Tek yönlüdür. İşlemin kriptografik özetini verir. temel amacı veri bütünlüğünü doğrulamaktır.
 
-Şifreleme: çift yönlüdür, veri gerekli anahtar ile eski haline getirilebilir.
+Şifreleme: çift yönlüdür, veri anahtar ile eski haline getirilebilir.
 
 dijital imza: işlemi yapan kişinin onayladığını kanıtlamak, veri bütünlüğünü doğrulamak için kullanılır.
 
@@ -98,11 +98,11 @@ dijital imza: işlemi yapan kişinin onayladığını kanıtlamak, veri bütünl
 
 • Private key, public key, adres, mnemonic ve seed arasındaki ilişki nedir?
 
-Mnemonic: 256 bitlik rastgele verinin, insanların hatasız okuyup yedekleyebilmesi için standart sözlükten 12 kelimeye çevrilmiş hâlidir.
+Mnemonic: 256 bitlik rastgele verinin, hatasız okuyup yedekleyebilmemiz için 12 kelimeye çevrilmiş halidir.
 
-Seed: Mnemonic kelimelerinin SHA512 gibi fonksiyondan 2048 tur geçirilmesiyle üretilen 512 bitlik ana tohumdur; cüzdandaki tüm hesapların ortak köküdür.
+Seed: Mnemonic kelimelerinin SHA512 gibi fonksiyondan 2048 tur geçirilmesiyle üretilen 512 bitlik ana tohumdur. cüzdandaki tüm hesapların ortak köküdür.
 
-Private Key: Seed'den türetme yolu izlenerek üretilen 256 bitlik anahtardır. Bir hesabın işlemlerini imzalama ve varlıklarını harcama yetkisini verir.
+Private Key: Seed'den türetme yolu izlenerek üretilen 128 bitlik anahtardır. Bir hesabın işlemlerini imzalama ve varlıklarını harcama yetkisini verir.
 
 Public Key: Private key ile secp256k1 eliptik curve üzerinde skaler çarpma yapılarak tek yönlü elde edilen açık anahtardır. dijital imzaların doğrulanmasında kullanılır.
 
@@ -148,15 +148,19 @@ Adresi paylaşmak, banka IBAN'ı vermek gibidir. tek yönlü kriptografik türet
 
 • Adres Paylaşımının Mahremiyet Etkisi Var mıdır?
 
-Evet. Bir adres gerçek kimlikle eşleştiği anda, herkes o adresin tüm geçmiş gelecek bakiyelerini, transferlerini, etkileşime girdiği sözleşmeleri ve bağlantılı olduğu adresleri Etherscan gibi sitelerden izlenebilir.
+Evet. Bir adres gerçek kimlikle eşleştiği anda, herkes o adresin tüm geçmiş gelecek bakiyelerini, transferlerini, bağlantılı adresleri vs. Etherscan den izleyebilir.
 
 
 
 Benim yorumum: Cüzdan uygulamasının silinmesi ve kurtarma bilgisinin kaybolması farkı
 
-Cüzdan uygulaması sadece hesabı kontrol etmek için bir arayüzdür. dolayısıyla uygulamayı silmek hesabı etkilemez. varlıklar uygulamada değil blokzincirdedir.
+Cüzdan uygulaması sadece bir arayüz. dolayısıyla uygulamayı silmek hesabı etkilemez. varlıklar uygulamada değil blokzincirde.
 
-kurtarma bilgisini kaybetmek ise hesaba olan erişimi tamamen kaybetmeye yol açar. merkeziyetsiz ağlarda "şifremi unuttum" yoktur.
+kurtarma bilgisini kaybetmek ise hesaba olan erişimi tamamen kaybetmeye yol açar. merkeziyetsiz ağlarda "şifremi unuttum" yok.
+
+
+
+Kendime not: entropi 128 bit private key 256 bit.
 
 
 
@@ -242,7 +246,7 @@ State (Durum): Blokzincirdeki tüm verilerin belirli bir bloktaki güncel durumu
 
 Kaynak Kod: Geliştiricinin yazdığı akıllı sözleşmenin kodudur. genelde yüksek seviye dillerle yazılır, derleme aşamasında düşük seviyeye dönüşür.
 
-Derleme: Derleyicinin kaynak kodu kontrol edip EVM'in çalıştırabileceği düşük seviyeli koda (bytecode) dönüştürme işlemi.
+Derleme: Derleyicinin kaynak kodu kontrol edip EVM'in çalıştırabileceği bytecodea dönüştürme işlemi.
 
 Bytecode: Derleme sonunda üretilen, EVM tarafından yürütülen hexadecimal makine kodu. Blokzincire yazılan şey Solidity kaynak kodu değil, bu bytecode olur.
 
@@ -252,11 +256,11 @@ Deploy: Derlenmiş bytecode'u alıcı adresi boş bırakılmış özel bir işle
 
 • ABI ne işe yarar? Ne zaman elde edilir? Bir sözleşmenin adresi dışında hangi arayüz bilgilerine ihtiyaç duyabilirsiniz?
 
-ABI (Application Binary Interface): Bir web uygulamasının, Remix'in veya Etherscan'in, zincirdeki bytecode ile nasıl konuşacağını tanımlayan (genellikle JSON formatındaki) arayüz sözleşmesidir. Hangi fonksiyonların, parametre tiplerinin, dönüş değerlerinin ve event'lerin bulunduğunu bildirir. insan okunabilir fonksiyon çağrılarını EVM'in anladığı binary/hex biçimine kodlamak ya da dönen veriyi tekrar okunabilir hâle çözmek için kullanılır.
+ABI (Application Binary Interface): Bir web uygulamasının zincirdeki bytecode ile nasıl konuşacağını tanımlayan arayüz sözleşmesi. Hangi fonksiyonların, parametre tiplerinin, dönüş değerlerinin ve event'lerin bulunduğunu bildirir. fonksiyon çağrılarını EVM'in anladığı binary biçimine kodlamak veya dönen veriyi tekrar okunabilir hale çözmek için kullanılır.
 
 Ne Zaman Elde Edilir? compile anında derleyici tarafından üretilir.
 
-Sözleşme Adresi Dışında Gereken Arayüz Bilgileri: Sadece adres o adreste hangi fonksiyonların olduğunu söylemez. Sözleşmeyle etkileşime geçmek için adresin yanında ABI, sözleşmenin hangi ağda bulunduğu (ör. Ethereum Sepolia) ve o ağa ulaşmak için bir RPC bağlantısı gerekir.
+Sözleşme Adresi Dışında Gereken Arayüz Bilgileri: sadece adres o adreste hangi fonksiyonların olduğunu söylemez. Sözleşmeyle etkileşime geçmek için adresin yanında ABI, sözleşmenin hangi ağda bulunduğu (ör. Ethereum Sepolia) ve o ağa ulaşmak için bir RPC bağlantısı gerekir.
 
 
 
@@ -272,7 +276,7 @@ State değiştiren işlem: Sözleşmenin kalıcı hafızasını (state) değişt
 
 Neyi doğrular: Solidity kaynak kodunun derleyici sürümü, zincirdeki sözleşme adresinde bulunan bytecode ile birebir eşleştiğini doğrular. Böylece ham bytecode yerine gerçek kaynak kodu okunabilir ve explorer üzerinden Read/Write Contract arayüzleri kullanılabilir.
 
-Güvenlik denetimi ile aynı şey mi: Hayır. Verify yalnızca şeffaflık ve kaynak kod–bytecode eşleşmesi sağlar. kodun saldırılara karşı güvenli olduğunu kanıtlamaz. İçinde güvenlik açığı veya backdoor bulunan bir sözleşme de kaynak kodu bytecode ile eşleşiyorsa verify edilebilir.
+Güvenlik denetimi ile aynı şey mi: Hayır. Verify yalnızca şeffaflık ve kaynak kod-bytecode eşleşmesi sağlar. kodun saldırılara karşı güvenli olduğunu kanıtlamaz. İçinde güvenlik açığı veya backdoor bulunan bir sözleşme de kaynak kodu bytecode ile eşleşiyorsa verify edilebilir.
 
 
 
@@ -455,11 +459,11 @@ Receipt ve state kontrol edilir:
 
 Benim yorumum: “İşlem başarısız” ile “sonucunu öğrenemedim” neden farklıdır?
 
-İşlem başarısız demek, İşlemin bir bloğa dahil edildiği ancak bir kural ihlali veya gas yetersizliği iptal edildiği anlamına gelir. receipt üzerinden görülebilir.
+İşlem başarısız demek, İşlemin bir bloğa dahil edildiği ancak bir kural ihlali, gas yetersizliğinden iptal edildiği anlamına gelebilir. receipt üzerinden görülebilir.
 
-sonucunu öğrenememek ise: İnternet kopması, RPC sağlayıcısının yanıt vermemesi veya başka bir nedenle işlemin son durumunun bilinmemesi. Bu durumda işlem başarıyla onaylanmış ya da pending aşamasında olabilir.
+sonucunu öğrenememek ise: İnternet kopması veya başka bir nedenle işlemin son durumunun bilinmemesi. Bu durumda işlem başarıyla onaylanmış ya da pending aşamasında olabilir.
 
-İki durumu ayırmak önemli. çünkü sonucu henüz doğrulanamamış bir işlemi başarısız oldu sanıp tekrar göndermek, aynı işlemin iki kez çalışmasına veya gereksiz gas harcanmasına yol açar.
+sonucunu öğrenmediğin bir işlemi başarısız oldu sanıp tekrar göndermek, aynı işlemin iki kez çalışmasına yol açar.
 
 
 
@@ -477,11 +481,11 @@ Web3: Web2.0'ın yerini alacak olan, internetin merkeziyetsiz ve izinsiz erişil
 
 L1: Blokzincir ağının kendisi L1 katmanı olur. mesela Bitcoin ve Ethereum L1 projeleridir.
 
-L2: Ana blokzincir ağının yani L1'in üstüne inşa edilen katman. mesela Tether Ethereum üzerinde inşa edilmiş bir L2 projesidir.
+L2: Ana blokzincir ağının yani L1'in üstüne inşa edilen katman. mesela Base Ethereum üzerinde inşa edilmiş bir L2 projesidir.
 
 DeFi: Geleneksel finans sistemi tamamen merkezi kurumlardan oluşur. mesela bankaların verileri merkezlerinde yönetilir. Ancak DeFi'da tek bir merkez yoktur. node'lar birlikte hareket ederek merkeziyetsiz bir finans mekanizması oluşturur. takas, borç veya likidite sağlama gibi finansal işlemler herkese açık, şeffaf akıllı sözleşmelerle sağlanır.
 
-DAO: merkeziyetsiz şekilde yönetilen kurumlar. bu kurumlarda yönetim mekanizması dağıtıktır. mesela proof of authority ile yönetiliyorsa taraflar 2/3 oranında çoğunlukla ortak karar alabilir.
+DAO: merkeziyetsiz şekilde yönetilen kurumlar. bu kurumlarda yönetim mekanizması dağıtıktır.
 
 Oracle: zincir dışındaki gerçek dünya verilerini doğrulayıp zincire aktaran köprü. (örn: Chainlink)
 
@@ -629,7 +633,43 @@ Zayıf tarafı: sadece EVM uyumlu sistemlerde çalışır, gas maliyeti yüksekt
 
 
 
+\-Yarışmanın çözülmesini istediği genel problemler
 
+Ölçeklenebilir DLT altyapıları
+
+Mahremiyet gizlilik odaklı projeler
+
+Dijital cüzdan projeleri
+
+kriptoloji, ZK, homomorfik şifreleme (yine gizlilik odaklı projeler yani)
+
+blokzincir güvenliği
+
+kimlik yönetim sistemleri
+
+DeFi
+
+RWA
+
+
+
+\-takımın geçmişte hedeflediği kapsamlar
+
+&#x09;2025 yılında kampüs cüzdanım adlı blokzincir projesini geliştirdiler. bu projede kampüste yemekhane gibi işlemlerin zincir üstüne taşınması hedeflenmişti.
+
+&#x09;2026 yılında takım proje kapsamını büyüterek kurumlar için BFT konsensüsü tabanlı işbirliği çözümü geliştirdi.
+
+
+
+Benim yorumum: Bu programda öğrendiğiniz hangi konuların yarışmada daha çok işe yarayacağını düşünüyorsunuz?
+
+mezuniyetten sonra en fazla 3 yıl geçmiş olmalı. 4. sınıf olduğum için önemli.
+
+takım kaptanı, iletişim sorumlusu olmalı.
+
+takım en fazla 5 kişilik olabilir.
+
+projelerin ön raporu martta, sunum raporu haziranda teslim ediliyor. sunumlar ise temmuzun sonunda yapılıyor. yine temmuzun sonunda finalistler açıklanıyor. eylülün sonunda da teknofest oluyor.
 
 
 
@@ -641,19 +681,13 @@ Zayıf tarafı: sadece EVM uyumlu sistemlerde çalışır, gas maliyeti yüksekt
 
 
 
-Git: Projenin içinde yapılan değişimleri kaydetmek ve takip etmek için kullanılır.
-
-GitHub: insanların Git altyapısını kullanan projelerini yükleyebildiği platform.
-
-README: projenin yapısı/amacı gibi önemli bilgilendirmelerini barındıran dosya.
-
-Commit: Projenin son halini Git sistemine kalıcı kayıt olarak eklemeyi sağlar.
-
-Push: Commit yerelde kayıt oluşturmuştu. bu ise bu kaydı uzak sunucuya kopyalar.
-
-Solidity: Ethereum'un akıllı kontratlarının yazıldığı oop programlama dili.
-
-Remix: Ethereum için akıllı kontratların Solidity kullanılarak yazıldığı uygulama/website.
+* Git: Projenin içinde yapılan değişimleri kaydetmek ve takip etmek için kullanılır.
+* GitHub: insanların Git altyapısını kullanan projelerini yükleyebildiği platform.
+* README: projenin yapısı/amacı gibi önemli bilgilendirmelerini barındıran dosya.
+* Commit: Projenin son halini Git sistemine kalıcı kayıt olarak eklemeyi sağlar.
+* Push: Commit yerelde kayıt oluşturmuştu. bu ise bu kaydı uzak sunucuya kopyalar.
+* Solidity: Ethereum'un akıllı kontratlarının yazıldığı oop programlama dili.
+* Remix: Ethereum için akıllı kontratların Solidity kullanılarak yazıldığı uygulama/website.
 
 
 
@@ -673,7 +707,7 @@ nasıl kurdum: https://nodejs.org/en/download sitesinden setup ile.
 
 
 
-​Entropi Üretimi
+Entropi Üretimi
 
 math.random() komutu tahmin edilebilir bir pseudorandom üretir. window.crypto.getRandomValues ise OS çekirdeğindeki özel rastgele sayı üreten çip ile üretir. biz ikincisini kullandık.
 
@@ -691,9 +725,9 @@ BIP39 Seed
 
 
 
-BPT32/BIP44 türetme ve Private Key
+BIP32/BIP44 türetme ve Private Key
 
-512 bitlik seedden "hiyerarşik deterministik" ana düşüm üretildi ve standard ethereum yolu (m/44'/60'/0'/0/0) takip edilerek 256 bitlik private key türetildi.
+512 bitlik seedden "hiyerarşik deterministik" ana düğüm üretildi ve standard ethereum yolu (m/44'/60'/0'/0/0) takip edilerek 256 bitlik private key türetildi.
 NOT: hiyerarşik determinizm: hiyerarşik ağaç yapısında organize edilmiş veri demek. deterministik ise aynı seed verildiğinde her zaman aynı private key oluşturulduğu anlamına geliyor.
 
 
@@ -708,7 +742,11 @@ Açık anahtarın Keccak-256 özetinin son 20 byteı alınıp EIP-55 büyük/kü
 
 
 
-Benim Yorumum: Mnemonic farklı blokzincir adreslerini hiyerarşik deterministik olarak(üstte tanımı var) yeniden üretebilen ana kök yedeklemesidir, Private Key ise bu ağaçtaki tek bir adrese alt işlem imzalama anahtarıdır.
+BBenim yorumum: Mnemonic ile private key arasındaki farkı kendi uygulamanız üzerinden açıklayın.
+
+Mnemonic tüm bize ait adresleri hiyerarşik deterministik olarak(üstte tanımı var. yani hangi arayzü kullanırsan kullan hep aynı şekilde çalışır) yeniden üretebilen kelimeler.
+
+private key ise tek bir adrese ait işlem imzalama anahtarı.
 
 
 
@@ -734,9 +772,9 @@ ancak son kelimeyi address kelimesiyle değiştirince doğru olmamasına rağmen
 
 
 
-Benim Yorumum
+Benim yorumum: Geçerli mnemonic ile güvenli biçimde üretilmiş mnemonic aynı iddia mıdır?
 
-aynı iddia değildir. bir mnemonic'in geçerli olması sadece 12 kelimenin BIP39 sözlüğünde bulunduğunu ve son 4 bitlik SHA-256 kontrol toplamı (checksum) kuralını sağladığını gösterir.
+aynı iddia değildir. bir mnemonic'in geçerli olması kurallara uygun olduğunu gösterir. Güvenli olması ise entropinin üretilme şeklinin ne kadar güvenli olduğuna bağlı.
 
 
 
@@ -756,14 +794,14 @@ Gelen işlem Tx hash: 0x635e45ad49d5523ab02eb737f2ba5764d8ce498505643770bac06b95
 
 
 
-PoW Faucet ve Ağ Konsensüsü Farkı
-Eğer PoW tabanlı bir faucet kullanıldıysa tarayıcının hash hesaplaması Sepolia ağında blok üretmek/işlem onaylamak için değildir.
+PoW faucet kullandıysanız tarayıcıdaki çalışmanın faucet’in dağıtım koşulu olduğunu, Sepolia’da blok üretmekle aynı şey olmadığını araştırın:
+PoW faucet kullanmadım faucet.circle.com pow kullanmıyormuş sadece recaptcha ile botları engelliyor.
 
-* Ethereum Proof of Stake konsensüsü ile çalışır. PoW faucet'teki hesaplama botların/kötü niyetlilerin tek seferde tüm test ETH'lerini sömürmesini zorlaştırmak için faucet operatörünün koyduğu yapay bir hız sınırlama koşuludur.
+Sepholia'da blok üretmek testnette gerçekten blok üretir ve validatorler gerçekten üretir. PoW faucette ise hash hesaplaması blok üretimi için değil botları engellemek için. ama benim kullandığım faucet hash hesaplaması yapmıyor.
 
 
 
-Benim Yorumum: Harcama yetkisi için Private key gereklidir. Adresten veya Public Key'den private key elde etmek neredeyse imkansız. çünkü 256 bitlik private ket 2 üzeri 256 ihtimalde bir aynı olabilir, ki bu ihtimali brute force ile hesaplamak neredeyse imkansızdır.
+Benim Yorumum: Harcama yetkisi için Private key gerekli. Adresten veya Public Key'den private key elde etmek neredeyse imkansız. çünkü 256 bitlik private key 2 üzeri 256 ihtimalde bir aynı olabilir, ki bu ihtimali brute force ile hesaplamak neredeyse imkansızdır.
 
 
 
@@ -803,9 +841,9 @@ USDC Transferi Hash: 0x85182d34b6de6a948a14d1bac6f4b35d37f0f94b3f9adf0ccebf9eb67
 
 Token'ı Cüzdanda Göstermek ile Zincirde Almak Arasındaki Fark
 
-Bir token'ı zincirde almak, ERC-20 sözleşmesinin state tablosundaki bakiye kaydının güncellenmesi demektir. bu işlem cüzdan uygulamasından bağımsız olarak blokzincirde gerçekleşir.
+Bir tokenı zincirde almak, state tablosundaki bakiye kaydının güncellenmesi demektir. cüzdan uygulamasından bağımsız olarak blokzincirde gerçekleşir.
 
-Tokenı cüzdanda göstermek ise yalnızca MetaMask arayüzüne balanceOf değerini okuyup ekranda göstermektir. Token MetaMask'e eklenmese bile bakiye zincirde kalır ve Etherscan'de görünür.
+Tokenı cüzdanda göstermek ise yalnızca balanceOf değerini okuyup ekranda göstermektir. Token MetaMask e eklenmese bile bakiye zincirde kalır ve Etherscande görünür.
 
 
 
@@ -841,7 +879,7 @@ Kontrol Sitesi haloclineblockchain.vercel.app Durumu: sitede gördüm
 
 İkinci Kayıt Denemesi Gözlemi
 
-Aynı eğitim cüzdanıyla register fonksiyonu ikinci kez çağırdığımda gas estimation failed diyerek daha derleme sırasında hata verdi. yani ikinci kez gönderemiyoruz..
+Aynı eğitim cüzdanıyla register fonksiyonu ikinci kez çağırdığımda gas estimation failed diyerek hata verdi. yani ikinci kez gönderemiyoruz..
 
 
 
@@ -863,7 +901,7 @@ From: 0x952B8633F2c1E66979b08968948c42511fAef3fb (benim adres)
 
 To: 0x81Dd700C459BF2806A1B5F2a349c89f0106A9036 (kulübün sözleşmesinin adresi)
 
-Gas Price: 1.500000014 Gwei (0.000000001500000014 ETH) (işlem için harcanan gas ücreti)
+Gas Price: 1.500000014 Gwei (0.000000001500000014 ETH) (işlem için harcanan gas ücretinin birim fiyatı)
 
 Nonce: 2 (işlemin sırası)
 
@@ -971,7 +1009,35 @@ takımdaki tx hash: 0x11c7ba343102fc02fae2835827a9952bf0d2d33786da57db82a5f89ad1
 
 
 
-Benim yorumum: hem takımın kodunda hem de benim kopyaladığım kodda ikinci kez kaydetme engellemesi var. ancak depolamalar yani state'ler farklı olduğu için takımın sözleşmesine 1. kaydı ekledikten sonra kendi sözleşmeme eklediğim kayıt 2. kayıt değil,  yine 1. kayıt olur. 
+Benim yorumum: hem takımın kodunda hem de benim kopyaladığım kodda ikinci kez kaydetme engellemesi var. ancak depolamalar yani state'ler farklı olduğu için takımın sözleşmesine 1. kaydı ekledikten sonra kendi sözleşmeme eklediğim kayıt 2. kayıt değil,  yine 1. kayıt olur.
+
+
+
+
+
+
+
+## İP 20
+
+
+
+etkinlikAdi ve kayitlar sözleşmenin state'inde tutulur yani kendi özel deplamasında.
+
+\_takmaAd değişkeni ise geçici bellekte tutulur, fonksiyon çağrılınca oluşur ve kayıt yapılırsa kalıcı depolamaya taşınır.
+
+
+
+msg.sender görevi: fonksiyonu çağıran yani kayıt yapan kullanıcının adresini verir. kullanıcıdan adres almakansa bu değişkenden çekerek başkası adına kayıt yapmayı engelleriz.
+
+
+
+Benim yorumum: Bu ilk sürüm hangi yanlış kullanımları henüz engellemiyor?
+
+çift kayıt engelleme fonksiyonu yok, çifte kaydı engellemiyor.
+
+takma ad boş olmasını engellemiyor
+
+aynı takma ad birden çok kişi tarafından kullanılabiliyor.
 
 
 
