@@ -1027,7 +1027,7 @@ etkinlikAdi ve kayitlar sözleşmenin state'inde tutulur yani kendi özel deplam
 
 
 
-msg.sender görevi: fonksiyonu çağıran yani kayıt yapan kullanıcının adresini verir. kullanıcıdan adres almakansa bu değişkenden çekerek başkası adına kayıt yapmayı engelleriz.
+msg.sender görevi: fonksiyonu çağıran yani kayıt yapan kullanıcının adresini verir. kullanıcıdan adres almaktansa bu değişkenden çekerek başkası adına kayıt yapmayı engelleriz.
 
 
 
@@ -1044,4 +1044,22 @@ aynı takma ad birden çok kişi tarafından kullanılabiliyor.
 
 
 
+
+## İP 21
+
+
+
+|DENEME|Beklenen sonuç|Alınan Sonuç|
+|-|-|-|
+|İlk geçerli kayıt|kabul|kabul|
+|Aynı hesaptan tekrar kayıt|Ret|ret|
+|Yeni hesaptan boş ad|ret|ret|
+|İkinci ve üçüncü geçerli kayıt|kabul|kabul|
+|Dördüncü farklı hesabın kaydı|ret|ret|
+
+
+
+\-Benim yorumum: Adres başına sınırın gerçek kişi sayısını neden garanti etmediğini açıklayın.
+
+Bir kişinin birden çok adresi olabilir. sözleşme farklı kişiyi değil farklı adresi kontrol ediyor.
 
