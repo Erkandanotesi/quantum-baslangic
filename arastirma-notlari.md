@@ -1059,7 +1059,40 @@ aynı takma ad birden çok kişi tarafından kullanılabiliyor.
 
 
 
+
+
 \-Benim yorumum: Adres başına sınırın gerçek kişi sayısını neden garanti etmediğini açıklayın.
 
 Bir kişinin birden çok adresi olabilir. sözleşme farklı kişiyi değil farklı adresi kontrol ediyor.
+
+
+
+
+
+
+
+## İP 22
+
+
+
+|DENEME|Beklenen sonuç|Alınan Sonuç|
+|-|-|-|
+|Görevli kayıtlı kişiye giriş verir|kabul|kabul|
+|Görevli olmayan hesap giriş verir|Ret|ret|
+|Görevli kayıtsız adrese giriş verir|ret|ret|
+|Aynı katılımcıya ikinci giriş|ret|ret|
+
+
+
+
+
+Benim yorumum: düğmeyi gizlemek sadece remix arayüzünde geçerli olurdu. bu yüzden etherscan arayüzü üzerinden fonksiyon çağırılsaydı engellenemezdi
+
+
+
+
+
+
+
+
 
