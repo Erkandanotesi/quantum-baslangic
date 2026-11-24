@@ -1096,3 +1096,59 @@ Benim yorumum: düğmeyi gizlemek sadece remix arayüzünde geçerli olurdu. bu 
 
 
 
+
+
+
+
+
+
+contract adres: 0xceF9e2B864D08C230B2926F177F7a671379b9935
+
+
+
+tx hash: 0xcefcb10af522e33201e041f5fa62155b4379169772c712c4be90ed8af3ee4bdc
+
+
+
+derleyici sürümü: 0.8.34+commit.80d5c536
+
+
+
+ABI: dosyaya kaydedildi.
+
+
+
+2\. hesap kayıt tx hash: 0x29de1a0aa119f9e0d3ef66a385687b981e651ddad46ea5a7db6c76e6ef46ecd2
+
+
+
+giriş onay tx hash: 0x51dc28bd26b4d3abf3e6bbfd135e357d15360e19d27ba3181f84d6cb4537f2f4
+
+
+
+Benim yorumum: yerel sürümde gorevli olarak remix adreslerini görmem gerekir. Sepolia sürümü ise metamask adresim gorevli olur.
+
+ayrıca etherscan üzerinde chainID de belli eder.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
