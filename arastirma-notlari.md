@@ -1094,7 +1094,7 @@ Benim yorumum: düğmeyi gizlemek sadece remix arayüzünde geçerli olurdu. bu 
 
 
 
-
+## İP 23
 
 
 
@@ -1136,15 +1136,25 @@ ayrıca etherscan üzerinde chainID de belli eder.
 
 
 
+## İP 25
+
+
+
+|**Deneme**|**Sonuç**|
+|-|-|
+|Başarılı kayıt|3. araba kaydı başarıyla yapıldı|
+|İmza reddi|imzayı manuel olarak reddettim. tx hash oluşmadı, mesaj görünmedi|
+|Tekrar kayıt|zaten kayıtlı hesapla tekrar kaydetmeyi denedim hata aldım.|
+|Kapasite doluluğu|3 kayıt varken 4. kayıt ekleyemedim|
+|Görevli olmayan hesapla giriş|3. account ile girişOnayla denedim hata aldım. görevli olmadığım için. görevli 1. hesap.|
+|Hesap değişimi|hesap değiştirince bazı hesaplar için "connect wallet" butonuna basmak durumunda kaldım.|
+|Bağlantı kesintisi|sonuç doğrulanmadan bağlantıyı kestim. sonuç doğrulanmadı hatası aldım. tekrar çevrimiçi oldum ve işlem durumunu tekrar sorgula dedim ve oldu|
 
 
 
 
 
-
-
-
-
+Benim yorumum: işlem başarısız kesin bir sonuçtur. sonuç henüz doğrulanmadı ise bağlantı sorunu sebebiyle işlemin durumunun bilinmediğini gösterir. işlem onaylanmış yada onaylanmamış olabilir.
 
 
 
