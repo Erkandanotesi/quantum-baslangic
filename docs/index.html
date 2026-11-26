@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quantum Kayıt — Sepolia Zincir Üstü Kayıt &amp; Giriş</title>
+  <meta name="description" content="Ethereum Sepolia ağındaki akıllı kayıt sözleşmelerinizi yerel olarak ekleyip cüzdan onayı, makbuz doğrulama ve giriş yönetimini canlı izleyin." />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23111621'/%3E%3Cpath d='M12 30L32 14L52 30V50H42V35H22V50H12V30Z' fill='%23f59e0b'/%3E%3Cpolygon points='32,34 40,38.5 32,43 24,38.5' fill='%232dd4bf'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="layout">
+    <!-- SAĞ / ANA ÇALIŞMA ALANI -->
+    <main>
+      <header class="topbar">
+        <div class="brand">
+          <svg class="logo" width="54" height="54" viewBox="0 0 64 64" aria-hidden="true">
+            <defs>
+              <linearGradient id="logoBg" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#182032" />
+                <stop offset="100%" stop-color="#0d121d" />
+              </linearGradient>
+              <linearGradient id="logoAccent" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#fbbf24" />
+                <stop offset="100%" stop-color="#f97316" />
+              </linearGradient>
+              <linearGradient id="logoTeal" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#2dd4bf" />
+                <stop offset="100%" stop-color="#0d9488" />
+              </linearGradient>
+            </defs>
+            <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#logoBg)" stroke="url(#logoAccent)" stroke-width="2" />
+            <!-- Çatı ve sütunlar -->
+            <path d="M13 28 L32 14 L51 28" fill="none" stroke="url(#logoAccent)" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M18 29 V49 M46 29 V49" stroke="#475569" stroke-width="3" stroke-linecap="round" />
+            <!-- Hareketli akıllı bariyer kolu -->
+            <g class="barrier">
+              <line x1="18" y1="33" x2="44" y2="33" stroke="#fbbf24" stroke-width="3.2" stroke-linecap="round" stroke-dasharray="5 4" />
+            </g>
+            <circle cx="18" cy="33" r="3" fill="#f97316" />
+            <!-- Merkezdeki blokzincir küpü -->
+            <g class="cube-pulse">
+              <polygon points="32,36 40,40.5 32,45 24,40.5" fill="url(#logoTeal)" />
+              <polygon points="24,40.5 32,45 32,53 24,48.5" fill="#0f766e" />
+              <polygon points="40,40.5 40,48.5 32,53 32,45" fill="#14b8a6" />
+            </g>
+            <circle class="spark" cx="50" cy="15" r="2.6" fill="#2dd4bf" />
+          </svg>
+          <div class="brand-text">
+            <span class="brand-title" id="brandTitle">Quantum Kayıt</span>
+            <span class="brand-sub">Zincir Üstü Kayıt &amp; Giriş Protokolü</span>
+          </div>
+        </div>
+
+        <div class="topbar-controls">
+          <button class="icon-btn" id="themeBtn" type="button" title="Tema değiştir" aria-label="Tema değiştir">
+            <svg id="themeIcon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="4"></circle>
+              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+            </svg>
+          </button>
+          <button class="contract-nav-btn needs-contract" id="sozlesmeModalBtn" type="button" title="Yerel sözleşmeleri yönet veya ekle">
+            <span class="contract-nav-dot" id="topbarSozlesmeNokta"></span>
+            <span class="contract-nav-label" id="topbarSozlesmeYazi">Sözleşme Ekle</span>
+            <span class="count-badge mono" id="topbarSozlesmeSayac">0</span>
+          </button>
+          <button class="refresh-btn" id="yenileBtn" type="button" title="Zincir ve hesap bilgilerini yenile" aria-label="Bilgileri Yenile">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+              <polyline points="21 3 21 9 15 9" />
+            </svg>
+            <span id="yenileBtnYazi">Bilgileri Yenile</span>
+          </button>
+          <button class="wallet-btn primary-connect" id="baglanBtn" type="button">
+            <span class="wallet-dot" id="bagliNokta" style="display:none"></span>
+            <svg id="cuzdanIkon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1" />
+              <path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4" />
+            </svg>
+            <span id="bagliAdres">Cüzdan Bağla</span>
+            <span class="role-chip" id="rolRozeti" style="display:none"></span>
+          </button>
+        </div>
+      </header>
+
+      <section class="hero">
+        <div class="kicker">
+          <span class="dot" id="kickerDot"></span>
+          <span class="kicker-name" id="garajAdi">Sözleşme Bekleniyor</span>
+          <span>·</span>
+          <span class="mono">Sepolia</span>
+          <span class="kicker-badge" id="kickerBadge">Sepolia · Yerel Sözleşme</span>
+        </div>
+        <h1 id="heroBaslik">Zincir üstü <span>kayıt &amp; giriş</span></h1>
+        <p class="lead">Ethereum Sepolia ağındaki kayıt sözleşmeni başlığıyla birlikte ekle; takma adınla kaydol, cüzdan onayı, zincir makbuzu doğrulaması ve hata durumlarını adım adım izle.</p>
+      </section>
+
+      <!-- Çevrimdışı / Bağlantı Kesintisi Uyarısı -->
+      <div class="offline-banner" id="cevrimdisiUyari" role="alert">
+        <span>⚠ Tarayıcı çevrimdışı görünüyor. Zincir okumaları ve makbuz doğrulaması duraklatıldı; mevcut işlem bağlantınız varsa korunur ve otomatik tekrar gönderim yapılmaz.</span>
+      </div>
+
+      <!-- Yanlış Ağ Uyarısı -->
+      <div class="network-banner" id="agUyariKutu" role="alert">
+        <span id="agUyari"></span>
+        <button class="switch-btn" id="sepoliaGecBtn" type="button">Sepolia Ağına Geç</button>
+      </div>
+
+      <!-- Sözleşme Eklenmemişken Gösterilen Başlangıç Kartı -->
+      <section class="onboarding-card" id="sozlesmeBosKart" aria-label="Sözleşme ekleme formu">
+        <div class="onboarding-head">
+          <div>
+            <h2>Başlamak için sözleşmenizi ekleyin</h2>
+            <p class="card-desc">Ön tanımlı sözleşme bulunmaz. Sepolia ağındaki sözleşmenizin başlığını ve adresini ekleyin; kayıtlar yalnızca bu tarayıcıda (<span class="mono">localStorage</span>) saklanır.</p>
+          </div>
+          <span class="storage-badge">Yerel Saklama</span>
+        </div>
+
+        <form id="ilkSozlesmeForm" class="contract-form" novalidate>
+          <div class="form-row-grid">
+            <div class="form-field">
+              <label class="field-label" for="ilkSozlesmeBaslik">Sözleşme Başlığı <span class="required-mark">*</span></label>
+              <input class="input" id="ilkSozlesmeBaslik" type="text" maxlength="48" placeholder="Örn: Garaj Kayıt, Atölye Girişi, Kulüp Kaydı" autocomplete="off" required />
+            </div>
+            <div class="form-field">
+              <label class="field-label" for="ilkSozlesmeBlok">Yayın Bloğu <span class="optional-mark">(isteğe bağlı)</span></label>
+              <input class="input mono" id="ilkSozlesmeBlok" type="text" inputmode="numeric" placeholder="Boşsa blok 0'dan taranır" autocomplete="off" />
+            </div>
+          </div>
+
+          <div class="form-field">
+            <label class="field-label" for="ilkSozlesmeAdres">Sepolia Sözleşme Adresi <span class="required-mark">*</span></label>
+            <input class="input mono" id="ilkSozlesmeAdres" type="text" placeholder="0x... (42 karakterlik Ethereum Sepolia adresi)" autocomplete="off" spellcheck="false" required />
+            <span class="form-hint">Ekleme sırasında Sepolia ağında sözleşme kodu ve kayıt arayüzü otomatik doğrulanır.</span>
+          </div>
+
+          <div class="form-error is-hidden" id="ilkSozlesmeHata" role="alert"></div>
+
+          <div class="btn-row">
+            <button class="action-btn" id="ilkSozlesmeEkleBtn" type="submit">
+              <span>Sözleşmeyi Doğrula ve Ekle</span>
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- Canlı İşlem Durum ve Makbuz Doğrulama Paneli -->
+      <section class="tx-status-bar" id="durumKutusu" aria-live="polite">
+        <div class="tx-status-head">
+          <div class="tx-status-title-wrap">
+            <span class="tx-state-badge" id="durumRozeti">Durum</span>
+            <strong class="tx-status-title" id="durumBaslik"></strong>
+          </div>
+          <div class="tx-status-actions">
+            <a class="mono tx-status-link" id="durumTxLink" target="_blank" rel="noopener" href="#" style="display:none"></a>
+            <button class="copy" id="durumHashKopyala" type="button" style="display:none">Hash Kopyala</button>
+            <button class="tx-close-btn" id="durumKapatBtn" type="button" title="Bildirimi kapat" aria-label="Bildirimi kapat">×</button>
+          </div>
+        </div>
+
+        <div class="tx-status-msg" id="durumMesaji"></div>
+        <div class="tx-status-detail mono" id="durumDetay" style="display:none"></div>
+
+        <div class="pipeline" id="islemHatti" style="display:none">
+          <span class="step-pill" data-step="1">1. Cüzdan Onayı</span>
+          <span class="step-arrow">→</span>
+          <span class="step-pill" data-step="2">2. Zincirde Bekleme</span>
+          <span class="step-arrow">→</span>
+          <span class="step-pill" data-step="3">3. Makbuz Doğrulama</span>
+        </div>
+
+        <div class="tx-recovery" id="durumKurtarma" style="display:none">
+          <button class="recovery-btn" id="makbuzTekrarSorgulaBtn" type="button">İşlem Durumunu Tekrar Sorgula (Yeniden Göndermez)</button>
+          <span class="recovery-note" id="kurtarmaNotu">Otomatik yeniden gönderim yapılmaz; yalnızca mevcut işlem hash'inin makbuzu okunur.</span>
+        </div>
+      </section>
+
+      <!-- Aktif Sözleşme Çalışma Alanı (Yalnızca sözleşme seçiliyken görünür) -->
+      <div id="aktifWorkspace" class="is-hidden">
+        <!-- Telemetri & Kapasite Özet Kartları -->
+        <section class="stats" aria-label="Sözleşme özeti">
+          <div class="stat">
+            <div class="k"><span>Kontenjan Doluluğu</span><span class="mono" id="kapasiteYuzde">0%</span></div>
+            <div class="v"><span id="toplamKayit">–</span> <span style="color:var(--faint);font-weight:500">/</span> <span id="kapasite">–</span></div>
+            <div class="bays" id="parkPeronlari" aria-hidden="true">
+              <span class="bay"></span><span class="bay"></span><span class="bay"></span>
+            </div>
+          </div>
+          <div class="stat">
+            <div class="k"><span>Giriş Onaylı</span></div>
+            <div class="v" id="onayliSayisi">–</div>
+            <div class="v-sub" id="bekleyenBilgi">Zincir okunuyor…</div>
+          </div>
+          <div class="stat">
+            <div class="k"><span>Son Hareket</span></div>
+            <div class="v" id="sonHareket">–</div>
+            <div class="v-sub" id="sonHareketTur">Event bekleniyor</div>
+          </div>
+          <div class="stat">
+            <div class="k"><span>Ağ Durumu</span></div>
+            <div class="v live"><span class="dot" id="agNokta"></span><span id="agAdi">Sepolia</span></div>
+            <div class="v-sub mono" id="agChainId">Chain 11155111</div>
+          </div>
+        </section>
+
+        <!-- Etkileşimli dApp İşlem Kartları -->
+        <section class="action-grid" aria-label="Sözleşme işlemleri">
+          <!-- Katılımcı Kaydı -->
+          <article class="action-card">
+            <div class="card-head">
+              <div>
+                <h2>Katılımcı Kaydı</h2>
+                <p class="card-desc">Cüzdanınla tek seferlik zincir üstü kayıt oluştur.</p>
+              </div>
+              <span class="pill method-kayit">kayitOl()</span>
+            </div>
+
+            <div class="wallet-context-bar" id="aktifHesapSatiri">
+              <span>Aktif hesap: <strong class="mono" id="aktifHesapKisa">Bağlı değil</strong></span>
+              <span class="account-flash" id="hesapDegistiRozeti" style="display:none">Hesap yenilendi</span>
+            </div>
+
+            <div class="my-status">
+              <div class="mini-kv">
+                <span>Kayıt Durumum</span>
+                <strong id="kayitDurumu">Bağlı değil</strong>
+              </div>
+              <div class="mini-kv">
+                <span>Takma Adım</span>
+                <strong id="takmaAdim">–</strong>
+              </div>
+              <div class="mini-kv">
+                <span>Giriş Durumum</span>
+                <strong id="girisDurumu">–</strong>
+              </div>
+            </div>
+
+            <div class="field-group">
+              <div class="input-wrap">
+                <input class="input" id="takmaAdInput" type="text" maxlength="48" placeholder="Takma adınız (örn: Katılımcı #1)" autocomplete="off" />
+              </div>
+              <div class="btn-row">
+                <button class="action-btn" id="kayitBtn" type="button" disabled>
+                  <span>Zincire Kaydol</span>
+                </button>
+              </div>
+              <div class="helper-note" id="kayitIpucu">İşlem göndermek için üstten MetaMask cüzdanını bağla.</div>
+            </div>
+          </article>
+
+          <!-- Görevli Paneli -->
+          <article class="action-card officer-card">
+            <div class="card-head">
+              <div>
+                <h2>Görevli Paneli</h2>
+                <p class="card-desc">Kayıtlı katılımcının girişini onayla.</p>
+              </div>
+              <span class="pill method-giris">girisOnayla()</span>
+            </div>
+
+            <div class="officer-info">
+              <span>Yetkili görevli:</span>
+              <span style="display:inline-flex;align-items:center;gap:6px;min-width:0">
+                <a class="mono" id="gorevliAdresi" target="_blank" rel="noopener" href="#">–</a>
+                <button class="copy" id="copyGorevli" type="button">Kopyala</button>
+              </span>
+            </div>
+
+            <div class="field-group">
+              <div class="input-wrap">
+                <input class="input mono" id="katilimciAdresInput" type="text" placeholder="Katılımcı adresi (0x...)" autocomplete="off" spellcheck="false" />
+              </div>
+              <div class="btn-row">
+                <button class="action-btn teal" id="girisOnaylaBtn" type="button" disabled>
+                  <span>Girişi Onayla</span>
+                </button>
+              </div>
+              <div class="helper-note" id="gorevliIpucu">Yetki kontrolü doğrudan akıllı sözleşmede yapılır.</div>
+            </div>
+          </article>
+        </section>
+
+        <!-- Zincir Üstü Katılımcı Akışı -->
+        <div class="section-head">
+          <div class="section-title">
+            <h2>Kayıt Zinciri</h2>
+            <span class="count-badge mono" id="zincirSayac">0</span>
+          </div>
+          <div class="filter-tabs" role="tablist" aria-label="Katılımcı filtresi">
+            <button class="filter-tab active" data-chain-filter="all" type="button">Tümü</button>
+            <button class="filter-tab" data-chain-filter="approved" type="button">Giriş Onaylı</button>
+            <button class="filter-tab" data-chain-filter="pending" type="button">Onay Bekleyen</button>
+          </div>
+        </div>
+
+        <ol class="chain" id="list" aria-live="polite">
+          <li class="entry skeleton"><div class="node"></div><div class="card"></div></li>
+          <li class="entry skeleton"><div class="node"></div><div class="card"></div></li>
+        </ol>
+      </div>
+
+      <footer>
+        <span id="status">Başlamak için bir Sepolia sözleşmesi ekleyin (tarayıcıda yerel saklanır).</span>
+        <span class="mono" id="footerSozlesme">Quantum Kayıt · Sepolia</span>
+      </footer>
+    </main>
+
+    <!-- SOL / YAPIŞKAN GEZGİN BARI -->
+    <aside aria-label="Sözleşme ve canlı işlemler">
+      <section class="panel" id="sozlesmelerPanel">
+        <h2 class="panel-head">
+          <span>Kayıtlı Sözleşmeler</span>
+          <button class="panel-add-btn" id="sidebarSozlesmeEkleBtn" type="button">+ Ekle</button>
+        </h2>
+        <ul class="contract-list" id="kayitliSozlesmeListesi">
+          <li class="contract-empty">Henüz yerel sözleşme eklenmedi.</li>
+        </ul>
+      </section>
+
+      <section class="panel is-hidden" id="aktifSozlesmePanel">
+        <h2 class="panel-head">
+          <span>Sözleşme</span>
+          <span class="verified">✓ Sepolia</span>
+        </h2>
+        <dl class="kv">
+          <dt>Başlık</dt><dd id="cName">–</dd>
+          <dt>Adres</dt>
+          <dd>
+            <a class="mono" id="cAddr" target="_blank" rel="noopener" href="#">–</a>
+            <button class="copy" id="copyContract" type="button">Kopyala</button>
+          </dd>
+          <dt>Ağ</dt><dd>Sepolia <span class="mono" style="color:var(--muted)">· 11155111</span></dd>
+          <dt>Yayın bloğu</dt><dd id="cBlockWrap"><a class="mono" id="cBlock" target="_blank" rel="noopener" href="#">–</a></dd>
+          <dt>Saklama</dt><dd class="mono">Tarayıcı (Yerel)</dd>
+          <dt>Onaylı işlem</dt><dd class="mono" id="cTx">–</dd>
+          <dt>Son blok</dt><dd class="mono" id="cHead">–</dd>
+        </dl>
+      </section>
+
+      <section class="panel is-hidden" id="sonIslemlerPanel">
+        <h2 class="panel-head">
+          <span>Son İşlemler</span>
+          <span class="live" style="font-weight:500;font-size:.76rem;color:var(--muted)"><span class="dot"></span>canlı</span>
+        </h2>
+        <div class="panel-subbar" role="tablist" aria-label="İşlem türü filtresi">
+          <button class="filter-tab active" data-tx-filter="all" type="button">Tümü</button>
+          <button class="filter-tab" data-tx-filter="kayit" type="button">kayitOl</button>
+          <button class="filter-tab" data-tx-filter="giris" type="button">girisOnayla</button>
+        </div>
+        <ul class="txs" id="txs">
+          <li class="tx-empty">Zincir logları taranıyor…</li>
+        </ul>
+      </section>
+    </aside>
+  </div>
+
+  <!-- Özgün Garaj Botu Maskotu -->
+  <div class="mascot-wrap" id="mascotWrap">
+    <button class="mascot-restore" id="mascotRestore" type="button" aria-label="Garaj Botu göster">🚗 Garaj Botu</button>
+    <div class="bubble" id="bubble">
+      <span id="bubbleText">Hoş geldin! Tx hash tek başına başarı değildir, makbuzu bekle 👀</span>
+      <button class="bubble-close" id="mascotHide" type="button" title="Gizle" aria-label="Maskotu gizle">×</button>
+    </div>
+    <button class="mascot-body" id="mascot" type="button" aria-label="Garaj Botu">
+      <svg viewBox="0 0 180 155" aria-hidden="true">
+        <defs>
+          <linearGradient id="carBody" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#fbbf24" />
+            <stop offset="55%" stop-color="#f59e0b" />
+            <stop offset="100%" stop-color="#c2410c" />
+          </linearGradient>
+          <linearGradient id="carGlass" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#1e293b" />
+            <stop offset="100%" stop-color="#0f172a" />
+          </linearGradient>
+          <linearGradient id="tealTrim" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#2dd4bf" />
+            <stop offset="100%" stop-color="#0d9488" />
+          </linearGradient>
+        </defs>
+        <!-- Gölge -->
+        <ellipse cx="90" cy="142" rx="60" ry="8" fill="#000" opacity="0.22" />
+        <!-- Anten -->
+        <g class="m-anten">
+          <path d="M90 36 C 92 22, 102 15, 110 12" stroke="#64748b" stroke-width="3.5" stroke-linecap="round" fill="none" />
+          <circle cx="111" cy="12" r="5" fill="#2dd4bf" />
+          <circle cx="111" cy="12" r="2.2" fill="#fff" opacity="0.8" />
+        </g>
+        <!-- Tekerlekler -->
+        <rect x="28" y="108" width="26" height="30" rx="8" fill="#1e293b" stroke="#0f172a" stroke-width="3" />
+        <rect x="126" y="108" width="26" height="30" rx="8" fill="#1e293b" stroke="#0f172a" stroke-width="3" />
+        <rect x="33" y="116" width="16" height="4" rx="2" fill="#475569" />
+        <rect x="131" y="116" width="16" height="4" rx="2" fill="#475569" />
+        <!-- Yan aynalar -->
+        <ellipse cx="24" cy="74" rx="10" ry="7" fill="#d97706" stroke="#9a3412" stroke-width="2" />
+        <ellipse cx="156" cy="74" rx="10" ry="7" fill="#d97706" stroke="#9a3412" stroke-width="2" />
+        <!-- Gövde -->
+        <path d="M36 74 C38 44, 52 34, 90 34 C128 34, 142 44, 144 74 L152 84 C157 90, 158 100, 156 112 C154 120, 146 124, 136 124 H44 C34 124, 26 120, 24 112 C22 100, 23 90, 28 84 Z" fill="url(#carBody)" stroke="#9a3412" stroke-width="2.4" />
+        <!-- Ön cam & Gözler -->
+        <path d="M46 76 C48 53, 58 45, 90 45 C122 45, 132 53, 134 76 Z" fill="url(#carGlass)" stroke="#334155" stroke-width="2" />
+        <path d="M54 54 L68 50 L62 66 L51 66 Z" fill="#fff" opacity="0.1" />
+        <g class="m-eyes">
+          <ellipse cx="73" cy="63" rx="8.5" ry="9.5" fill="#fff" />
+          <ellipse cx="107" cy="63" rx="8.5" ry="9.5" fill="#fff" />
+          <circle cx="75" cy="64" r="4.5" fill="#0f172a" />
+          <circle cx="109" cy="64" r="4.5" fill="#0f172a" />
+          <circle cx="77" cy="61.5" r="1.7" fill="#2dd4bf" />
+          <circle cx="111" cy="61.5" r="1.7" fill="#2dd4bf" />
+        </g>
+        <!-- Gülümseyen ön ızgara -->
+        <rect x="64" y="92" width="52" height="15" rx="7.5" fill="#1e293b" stroke="#0f172a" stroke-width="2" />
+        <path d="M76 99 Q90 106 104 99" stroke="#2dd4bf" stroke-width="2.6" stroke-linecap="round" fill="none" />
+        <!-- Parlayan Farlar -->
+        <g class="m-glow">
+          <circle cx="42" cy="96" r="10" fill="#fef3c7" stroke="#f59e0b" stroke-width="2.5" />
+          <circle cx="42" cy="96" r="5" fill="#ffffff" />
+          <circle cx="138" cy="96" r="10" fill="#fef3c7" stroke="#f59e0b" stroke-width="2.5" />
+          <circle cx="138" cy="96" r="5" fill="#ffffff" />
+        </g>
+        <!-- Plaka -->
+        <rect x="68" y="112" width="44" height="12" rx="3" fill="url(#tealTrim)" />
+        <text x="90" y="121" text-anchor="middle" fill="#042f2e" font-family="JetBrains Mono, monospace" font-weight="700" font-size="8.2" letter-spacing="0.6">GARAJ</text>
+      </svg>
+    </button>
+  </div>
+
+  <!-- Yerel Sözleşme Yönetim Modalı -->
+  <div class="modal-backdrop is-hidden" id="sozlesmeModal" role="dialog" aria-modal="true" aria-labelledby="modalBaslik">
+    <div class="modal-dialog">
+      <div class="modal-head">
+        <div>
+          <h2 id="modalBaslik">Sözleşme Yönetimi</h2>
+          <p class="modal-sub">Sözleşmeler yalnızca bu tarayıcıda yerel olarak saklanır.</p>
+        </div>
+        <button class="tx-close-btn" id="modalKapatBtn" type="button" title="Pencereyi kapat" aria-label="Pencereyi kapat">×</button>
+      </div>
+
+      <div class="modal-body">
+        <div id="modalKayitliBolum" class="is-hidden">
+          <div class="modal-section-title">Kayıtlı Sözleşmeler</div>
+          <ul class="contract-list" id="modalSozlesmeListesi"></ul>
+          <div class="modal-divider"></div>
+        </div>
+
+        <form id="modalSozlesmeForm" class="contract-form" novalidate>
+          <div class="modal-section-title" id="modalFormAltBaslik">Yeni Sözleşme Ekle</div>
+
+          <div class="form-field">
+            <label class="field-label" for="modalSozlesmeBaslik">Sözleşme Başlığı <span class="required-mark">*</span></label>
+            <input class="input" id="modalSozlesmeBaslik" type="text" maxlength="48" placeholder="Örn: Garaj Kayıt, Atölye Girişi, Kulüp Kaydı" autocomplete="off" required />
+          </div>
+
+          <div class="form-field">
+            <label class="field-label" for="modalSozlesmeAdres">Sepolia Sözleşme Adresi <span class="required-mark">*</span></label>
+            <input class="input mono" id="modalSozlesmeAdres" type="text" placeholder="0x... (Sepolia sözleşme adresi)" autocomplete="off" spellcheck="false" required />
+          </div>
+
+          <div class="form-field">
+            <label class="field-label" for="modalSozlesmeBlok">Yayın Bloğu <span class="optional-mark">(isteğe bağlı)</span></label>
+            <input class="input mono" id="modalSozlesmeBlok" type="text" inputmode="numeric" placeholder="Boşsa blok 0'dan taranır" autocomplete="off" />
+          </div>
+
+          <div class="form-error is-hidden" id="modalSozlesmeHata" role="alert"></div>
+
+          <div class="modal-actions">
+            <button class="refresh-btn" id="modalIptalBtn" type="button">İptal</button>
+            <button class="action-btn" id="modalKaydetBtn" type="submit">
+              <span>Sözleşmeyi Doğrula ve Ekle</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.umd.min.js"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
