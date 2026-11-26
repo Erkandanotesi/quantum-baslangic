@@ -1,18 +1,48 @@
-/* Quantum Kayıt (Canlı Sürüm) — Yerel Sözleşme Yönetimi, Makbuz Doğrulama & Hata Takibi */
+/* Quantum Kayıt (Canlı Sürüm) — Uyarlanabilir Sözleşme Uyumu, Yerel Yönetim & Makbuz Doğrulama */
 
 const el = (id) => document.getElementById(id);
 const ethersYukluMu = typeof ethers !== "undefined";
-const iface = ethersYukluMu ? new ethers.Interface(SOZLESME_ABI) : null;
-const GARAJ_ADI_YEDEK_IFACE = ethersYukluMu
-  ? new ethers.Interface(["function garajAdi() view returns (string)"])
-  : null;
 
-const KAYIT_TOPIC = iface ? iface.getEvent("KayitOlundu").topicHash : null;
-const GIRIS_TOPIC = iface ? iface.getEvent("GirisOnaylandi").topicHash : null;
+// Desteklenen tüm event şemaları için topic -> decoder haritası
+const EVENT_DECODERS = new Map();
+const ALL_EVENT_TOPICS = [];
+
+if (ethersYukluMu && Array.isArray(DESTEKLENEN_EVENTLER)) {
+  for (const def of DESTEKLENEN_EVENTLER) {
+    try {
+      const evIface = new ethers.Interface([def.fragment]);
+      const evFragment = evIface.fragments[0];
+      const topic = evIface.getEvent(evFragment.name).topicHash.toLowerCase();
+      if (!EVENT_DECODERS.has(topic)) {
+        EVENT_DECODERS.set(topic, {
+          kind: def.kind,
+          hasMeta: Boolean(def.hasMeta),
+          iface: evIface,
+          eventName: evFragment.name,
+        });
+        ALL_EVENT_TOPICS.push(topic);
+      }
+    } catch {}
+  }
+}
+
+const YETENEK_ANAHTARLARI = [
+  "register",
+  "approve",
+  "officer",
+  "entryStatus",
+  "capacity",
+  "total",
+  "allRecords",
+  "isRegistered",
+  "nameByAddr",
+  "title",
+];
 
 const RPC_ZAMAN_ASIMI = 8500;
 const LOG_PARCA = 40000;
 const YENILEME_MS = 20000;
+const MAKBUZ_GRUP_BOYUTU = 6;
 
 // Uygulama durumu
 let browserProvider = null;
@@ -27,21 +57,22 @@ let hesapRozetZaman = null;
 let yenileYaziZaman = null;
 
 let sozlesmeDeposu = { activeId: null, items: [] };
+let aktifProfil = null;
 let sozlesmeOturumNo = 0;
 let duzenlenenSozlesmeId = null;
 let kismiTaramaUyarisi = false;
 
 let sozlesmeBilgi = {
   etkinlikAdi: "",
-  kapasite: 0,
-  toplamKayit: 0,
+  kapasite: null,
+  toplamKayit: null,
   gorevli: null,
 };
 
 let tepeBlok = null;
 let tarananBlok = -1;
 const katilimcilar = new Map(); // lowerAddr -> { adres, takmaAd, kayitTx, kayitBlok, kayitZaman, girisOnayli, girisTx, girisBlok, girisZaman, sira }
-const islemListesi = [];        // { tur: 'kayit'|'giris', tx, blok, logIndex, adres, takmaAd, zaman }
+const islemListesi = [];        // { tur: 'kayit'|'giris', methodAd, tx, blok, logIndex, adres, takmaAd, zaman }
 const islemAnahtarlari = new Set();
 const makbuzlar = new Map();    // txHash -> receipt
 const blokZamanlari = new Map();// blockNumber -> unix seconds
@@ -170,7 +201,228 @@ function temaBaslat() {
 }
 
 /* ===========================
-   2) YEREL SÖZLEŞME DEPOSU (localStorage)
+   2) YETENEK ALGILAMA & UYARLANABİLİR UYUM
+   =========================== */
+const ifaceCache = new Map();
+function fragmentIfaceAl(fragment) {
+  if (!ifaceCache.has(fragment)) {
+    ifaceCache.set(fragment, new ethers.Interface([fragment]));
+  }
+  return ifaceCache.get(fragment);
+}
+
+function bytecodeSeciciVarMi(bytecode, sig) {
+  if (!ethersYukluMu || typeof bytecode !== "string" || bytecode.length < 10) return false;
+  const sel = ethers.id(sig).slice(2, 10).toLowerCase();
+  return bytecode.toLowerCase().includes("63" + sel);
+}
+
+async function safeViewCall(targetAddr, candidate, args = []) {
+  if (!candidate || !ethersYukluMu) return { ok: false, networkError: false };
+  try {
+    const fnIface = fragmentIfaceAl(candidate.fragment);
+    const data = fnIface.encodeFunctionData(candidate.name, args);
+    const raw = await hizli("eth_call", [{ to: targetAddr, data }, "latest"]);
+    if (!raw || raw === "0x") return { ok: false, networkError: false };
+    const value = fnIface.decodeFunctionResult(candidate.name, raw)[0];
+    return { ok: true, value };
+  } catch (err) {
+    return { ok: false, networkError: err instanceof RpcBaglantiHatasi };
+  }
+}
+
+function adayKopyala(c) {
+  return c ? { sig: c.sig, name: c.name, fragment: c.fragment } : null;
+}
+
+function yetenekObjesiDogrula(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const temiz = {};
+  let gecerliAlanVar = false;
+  for (const key of YETENEK_ANAHTARLARI) {
+    const val = raw[key];
+    if (
+      val &&
+      typeof val === "object" &&
+      typeof val.sig === "string" &&
+      typeof val.name === "string" &&
+      typeof val.fragment === "string"
+    ) {
+      temiz[key] = { sig: val.sig, name: val.name, fragment: val.fragment };
+      gecerliAlanVar = true;
+    } else {
+      temiz[key] = null;
+    }
+  }
+  return gecerliAlanVar ? temiz : null;
+}
+
+async function yetenekleriAlgila(checksumAddr, existingCode = null) {
+  if (!ethersYukluMu) {
+    throw new Error("ethers.js yüklenemediği için sözleşme doğrulanamadı.");
+  }
+
+  let code = existingCode;
+  if (!code) {
+    try {
+      code = await hizli("eth_getCode", [checksumAddr, "latest"]);
+    } catch (err) {
+      if (err instanceof RpcBaglantiHatasi) {
+        throw new RpcBaglantiHatasi(
+          "Sepolia RPC düğümlerine ulaşılamadı. İnternet bağlantınızı kontrol edip tekrar deneyin."
+        );
+      }
+      throw new Error("Sepolia ağında sözleşme kodu okunamadı: " + (err?.message || "Bilinmeyen hata"));
+    }
+  }
+
+  if (!code || code === "0x" || code === "0x0" || code.length <= 2) {
+    throw new Error("Bu adreste Ethereum Sepolia ağında yayınlanmış bir sözleşme kodu bulunamadı.");
+  }
+
+  const profil = {
+    register: null,
+    approve: null,
+    officer: null,
+    entryStatus: null,
+    capacity: null,
+    total: null,
+    allRecords: null,
+    isRegistered: null,
+    nameByAddr: null,
+    title: null,
+  };
+
+  for (const c of YETENEK_ADAYLARI.register) {
+    if (bytecodeSeciciVarMi(code, c.sig)) {
+      profil.register = adayKopyala(c);
+      break;
+    }
+  }
+
+  for (const c of YETENEK_ADAYLARI.approve) {
+    if (bytecodeSeciciVarMi(code, c.sig)) {
+      profil.approve = adayKopyala(c);
+      break;
+    }
+  }
+
+  const readSlots = [
+    { key: "officer", args: [] },
+    { key: "entryStatus", args: [ethers.ZeroAddress] },
+    { key: "capacity", args: [] },
+    { key: "total", args: [] },
+    { key: "allRecords", args: [] },
+    { key: "isRegistered", args: [ethers.ZeroAddress] },
+    { key: "nameByAddr", args: [ethers.ZeroAddress] },
+    { key: "title", args: [] },
+  ];
+
+  await Promise.all(
+    readSlots.map(async ({ key, args }) => {
+      const eslesenler = (YETENEK_ADAYLARI[key] || []).filter((c) => bytecodeSeciciVarMi(code, c.sig));
+      for (const aday of eslesenler) {
+        const res = await safeViewCall(checksumAddr, aday, args);
+        if (res.networkError) {
+          throw new RpcBaglantiHatasi(
+            "Sepolia RPC düğümlerine ulaşılamadı. İnternet bağlantınızı kontrol edip tekrar deneyin."
+          );
+        }
+        if (res.ok) {
+          profil[key] = adayKopyala(aday);
+          break;
+        }
+      }
+    })
+  );
+
+  return profil;
+}
+
+function yazmaSozlesmesiniGuncelle() {
+  const sozlesme = aktifSozlesme();
+  if (!signer || !dogruAg || !sozlesme || !ethersYukluMu || !aktifProfil) {
+    yazmaSozlesmesi = null;
+    return;
+  }
+
+  const writeFragments = [aktifProfil.register?.fragment, aktifProfil.approve?.fragment].filter(Boolean);
+  if (!writeFragments.length) {
+    yazmaSozlesmesi = null;
+    return;
+  }
+
+  yazmaSozlesmesi = new ethers.Contract(sozlesme.address, writeFragments, signer);
+}
+
+function uyumlulukArayuzunuUygula(profil) {
+  const hasRegister = profil ? Boolean(profil.register) : true;
+  const hasApprove = profil ? Boolean(profil.approve) : true;
+  const hasEntry = profil ? Boolean(profil.approve || profil.entryStatus) : true;
+  const hasCapacity = profil ? Boolean(profil.capacity) : true;
+  const hasOfficer = profil ? Boolean(profil.officer) : true;
+
+  el("kayitKarti").classList.toggle("is-hidden", !hasRegister);
+  el("gorevliKarti").classList.toggle("is-hidden", !hasApprove);
+  el("gorevliBilgiSatiri").classList.toggle("is-hidden", !hasOfficer);
+
+  const gorunenKartSayisi = (hasRegister ? 1 : 0) + (hasApprove ? 1 : 0);
+  const $actionGrid = el("actionGrid");
+  $actionGrid.classList.toggle("is-hidden", gorunenKartSayisi === 0);
+  $actionGrid.classList.toggle("single-card", gorunenKartSayisi === 1);
+
+  el("kayitMethodPill").textContent = profil?.register ? `${profil.register.name}()` : "kayitOl()";
+  el("girisMethodPill").textContent = profil?.approve ? `${profil.approve.name}()` : "girisOnayla()";
+
+  el("statOnayli").classList.toggle("is-hidden", !hasEntry);
+  el("statsGrid").classList.toggle("cols-3", !hasEntry);
+
+  el("myGirisWrap").classList.toggle("is-hidden", !hasEntry);
+  el("myStatusGrid").classList.toggle("cols-2", !hasEntry);
+
+  el("zincirFiltreler").classList.toggle("is-hidden", !hasEntry);
+  el("txFiltreler").classList.toggle("is-hidden", !hasEntry);
+
+  if (!hasEntry) {
+    if (zincirFiltre !== "all" || islemFiltre !== "all") {
+      filtreSekmeleriniSifirla();
+    }
+  } else {
+    el("txFiltreKayitBtn").textContent = profil?.register?.name || "kayitOl";
+    el("txFiltreGirisBtn").textContent = profil?.approve?.name || "girisOnayla";
+  }
+
+  el("statKapasiteBaslik").textContent = hasCapacity ? "Kontenjan Doluluğu" : "Toplam Kayıt";
+  el("kapasiteAyirici").classList.toggle("is-hidden", !hasCapacity);
+  el("kapasite").classList.toggle("is-hidden", !hasCapacity);
+  el("parkPeronlari").classList.toggle("is-hidden", !hasCapacity);
+
+  if (!hasCapacity) {
+    el("kapasiteYuzde").textContent = "Sınırsız";
+  }
+
+  const $features = el("cFeatures");
+  $features.textContent = "";
+  if (!profil) {
+    $features.textContent = "Algılanıyor…";
+    return;
+  }
+
+  const chipEkle = (metin, cls = "") => {
+    const span = document.createElement("span");
+    span.className = "feature-chip" + (cls ? " " + cls : "");
+    span.textContent = metin;
+    $features.appendChild(span);
+  };
+
+  if (profil.register) chipEkle(`${profil.register.name}()`, "accent");
+  if (profil.approve) chipEkle(`${profil.approve.name}()`, "teal");
+  chipEkle(hasCapacity ? "Kontenjanlı" : "Sınırsız");
+  chipEkle(hasEntry ? "Görevli Onaylı" : "Açık Kayıt");
+}
+
+/* ===========================
+   3) YEREL SÖZLEŞME DEPOSU (localStorage)
    =========================== */
 function aktifSozlesme() {
   if (!sozlesmeDeposu.activeId) return null;
@@ -215,7 +467,12 @@ function sozlesmeleriYukle() {
       if (gorulen.has(id)) continue;
       gorulen.add(id);
 
-      const rawTitle = typeof raw.title === "string" ? raw.title.trim() : typeof raw.label === "string" ? raw.label.trim() : "";
+      const rawTitle =
+        typeof raw.title === "string"
+          ? raw.title.trim()
+          : typeof raw.label === "string"
+          ? raw.label.trim()
+          : "";
       const title = (rawTitle || kisaAdres(addr)).slice(0, 48);
 
       let deployBlock = null;
@@ -227,7 +484,8 @@ function sozlesmeleriYukle() {
       }
 
       const addedAt = Number.isFinite(Number(raw.addedAt)) ? Number(raw.addedAt) : Date.now();
-      gecerli.push({ id, title, address: addr, deployBlock, addedAt });
+      const capabilities = yetenekObjesiDogrula(raw.capabilities);
+      gecerli.push({ id, title, address: addr, deployBlock, addedAt, capabilities });
     }
 
     const activeId =
@@ -281,36 +539,24 @@ async function sozlesmeDogrula(hamAdres) {
   }
 
   const checksumAddr = ethers.getAddress(temiz);
-
-  let code;
+  let profil;
   try {
-    code = await hizli("eth_getCode", [checksumAddr, "latest"]);
+    profil = await yetenekleriAlgila(checksumAddr);
   } catch (err) {
     if (err instanceof RpcBaglantiHatasi) {
       throw new Error("Sepolia RPC düğümlerine ulaşılamadı. İnternet bağlantınızı kontrol edip tekrar deneyin.");
     }
-    throw new Error("Sepolia ağında adres doğrulanamadı: " + (err?.message || "Bilinmeyen hata"));
+    throw err;
   }
 
-  if (!code || code === "0x" || code === "0x0" || code.length <= 2) {
-    throw new Error("Bu adreste Ethereum Sepolia ağında yayınlanmış bir sözleşme kodu bulunamadı.");
+  const uyumluMu = Boolean(
+    profil.register || profil.allRecords || profil.total || profil.nameByAddr || profil.isRegistered
+  );
+  if (!uyumluMu) {
+    throw new Error("Adreste sözleşme bulundu ancak desteklenen bir kayıt/giriş arayüzüyle uyumlu değil.");
   }
 
-  try {
-    await Promise.all([
-      ethCallDecodeFor(checksumAddr, "KAPASITE"),
-      ethCallDecodeFor(checksumAddr, "toplamKayit"),
-      ethCallDecodeFor(checksumAddr, "gorevli"),
-    ]);
-  } catch (err) {
-    if (err instanceof RpcBaglantiHatasi) {
-      throw new Error("Sepolia RPC düğümlerine ulaşılamadı. İnternet bağlantınızı kontrol edip tekrar deneyin.");
-    }
-    throw new Error("Adreste sözleşme bulundu ancak kayıt/giriş arayüzüyle (KAPASITE, toplamKayit, gorevli) uyumlu değil.");
-  }
-
-  const onChainName = await etkinlikAdiOkuFor(checksumAddr);
-  return { address: checksumAddr, onChainName };
+  return { address: checksumAddr, capabilities: profil };
 }
 
 function filtreSekmeleriniSifirla() {
@@ -446,7 +692,7 @@ async function sozlesmeEkle({ title, address, deployBlock }) {
     throw new Error("Bu sözleşme adresi zaten yerel listenizde kayıtlı.");
   }
 
-  const { address: checksumAddr } = await sozlesmeDogrula(address);
+  const { address: checksumAddr, capabilities } = await sozlesmeDogrula(address);
   const id = checksumAddr.toLowerCase();
   if (sozlesmeDeposu.items.some((it) => it.id === id)) {
     throw new Error("Bu sözleşme adresi zaten yerel listenizde kayıtlı.");
@@ -458,6 +704,7 @@ async function sozlesmeEkle({ title, address, deployBlock }) {
     address: checksumAddr,
     deployBlock: gecerliBlok,
     addedAt: Date.now(),
+    capabilities,
   });
   sozlesmeDeposu.activeId = id;
   sozlesmeleriKaydet();
@@ -628,8 +875,8 @@ async function aktifSozlesmeyeGec(secenek = {}) {
 
   sozlesmeBilgi = {
     etkinlikAdi: "",
-    kapasite: 0,
-    toplamKayit: 0,
+    kapasite: null,
+    toplamKayit: null,
     gorevli: null,
   };
   tepeBlok = null;
@@ -652,6 +899,8 @@ async function aktifSozlesmeyeGec(secenek = {}) {
   kayitliSozlesmeleriCiz();
 
   if (!sozlesme) {
+    aktifProfil = null;
+    uyumlulukArayuzunuUygula(null);
     tarananBlok = -1;
     yazmaSozlesmesi = null;
     islemButonlariniGuncelle(true, "Zincire Kaydol", "Girişi Onayla");
@@ -663,11 +912,13 @@ async function aktifSozlesmeyeGec(secenek = {}) {
     return;
   }
 
+  aktifProfil = sozlesme.capabilities || null;
+  uyumlulukArayuzunuUygula(aktifProfil);
   tarananBlok = -1;
 
   el("toplamKayit").textContent = "–";
   el("kapasite").textContent = "–";
-  el("kapasiteYuzde").textContent = "0%";
+  el("kapasiteYuzde").textContent = aktifProfil && !aktifProfil.capacity ? "Sınırsız" : "0%";
   el("onayliSayisi").textContent = "–";
   el("bekleyenBilgi").textContent = "Zincir okunuyor…";
   el("sonHareket").textContent = "–";
@@ -681,13 +932,7 @@ async function aktifSozlesmeyeGec(secenek = {}) {
   el("txs").innerHTML = '<li class="tx-empty">Zincir logları taranıyor…</li>';
 
   sabitBilgileriYaz();
-
-  if (signer && dogruAg && ethersYukluMu) {
-    yazmaSozlesmesi = new ethers.Contract(sozlesme.address, SOZLESME_ABI, signer);
-  } else {
-    yazmaSozlesmesi = null;
-  }
-
+  yazmaSozlesmesiniGuncelle();
   islemButonlariniGuncelle(aktifGonderimVar, "Zincire Kaydol", "Girişi Onayla");
   rolArayuzuGuncelle();
 
@@ -713,7 +958,7 @@ async function aktifSozlesmeyeGec(secenek = {}) {
       rozet: "Sözleşme Eklendi",
       baslik: `"${sozlesme.title}" doğrulandı ve yerel olarak kaydedildi`,
       mesaj:
-        "Sözleşme Sepolia ağında doğrulandı. Zincir kayıtları ve işlemler aşağıda yükleniyor.",
+        "Sözleşme yetenekleri Sepolia ağında algılandı ve arayüz buna göre uyarlandı.",
       detay: `Adres: ${sozlesme.address}`,
     });
   }
@@ -722,7 +967,7 @@ async function aktifSozlesmeyeGec(secenek = {}) {
 }
 
 /* ===========================
-   3) PUBLIC SEPOLIA RPC & MAKBUZ SORGULAMA
+   4) PUBLIC SEPOLIA RPC & MAKBUZ SORGULAMA
    =========================== */
 async function rpcHam(url, method, params) {
   if (typeof navigator !== "undefined" && navigator.onLine === false) {
@@ -779,30 +1024,12 @@ async function hizli(method, params) {
   throw new Error(sonHata?.message || "Sepolia RPC hatası");
 }
 
-async function ethCallDecodeFor(targetAddr, fnName, args = []) {
-  const data = iface.encodeFunctionData(fnName, args);
+async function ethCallSlot(targetAddr, candidate, args = []) {
+  if (!candidate) return null;
+  const fnIface = fragmentIfaceAl(candidate.fragment);
+  const data = fnIface.encodeFunctionData(candidate.name, args);
   const raw = await hizli("eth_call", [{ to: targetAddr, data }, "latest"]);
-  return iface.decodeFunctionResult(fnName, raw)[0];
-}
-
-async function ethCallDecode(fnName, args = []) {
-  const sozlesme = aktifSozlesme();
-  if (!sozlesme) throw new Error("Aktif sözleşme seçili değil");
-  return ethCallDecodeFor(sozlesme.address, fnName, args);
-}
-
-async function etkinlikAdiOkuFor(targetAddr) {
-  try {
-    return await ethCallDecodeFor(targetAddr, "etkinlikAdi");
-  } catch {
-    try {
-      const data = GARAJ_ADI_YEDEK_IFACE.encodeFunctionData("garajAdi", []);
-      const raw = await hizli("eth_call", [{ to: targetAddr, data }, "latest"]);
-      return GARAJ_ADI_YEDEK_IFACE.decodeFunctionResult("garajAdi", raw)[0];
-    } catch {
-      return "";
-    }
-  }
+  return fnIface.decodeFunctionResult(candidate.name, raw)[0];
 }
 
 async function blokZamaniAl(blokNo) {
@@ -941,7 +1168,7 @@ async function loglariAl(url, contractAddress, from, to) {
   return rpc(url, "eth_getLogs", [
     {
       address: contractAddress,
-      topics: [[KAYIT_TOPIC, GIRIS_TOPIC]],
+      topics: [ALL_EVENT_TOPICS],
       fromBlock: "0x" + from.toString(16),
       toBlock: "0x" + to.toString(16),
     },
@@ -966,7 +1193,7 @@ async function loglariParcaliAl(contractAddress, baslangic, tepe) {
 }
 
 async function loglariTara(tepe, oturum = sozlesmeOturumNo, sozlesme = aktifSozlesme()) {
-  if (!sozlesme || oturum !== sozlesmeOturumNo) return;
+  if (!sozlesme || oturum !== sozlesmeOturumNo || !ALL_EVENT_TOPICS.length) return;
   const baslangic = tarananBlok < 0 ? (sozlesme.deployBlock ?? 0) : tarananBlok + 1;
   if (tepe < baslangic) return;
 
@@ -993,51 +1220,71 @@ async function loglariTara(tepe, oturum = sozlesmeOturumNo, sozlesme = aktifSozl
 
   if (oturum !== sozlesmeOturumNo) return;
 
-  const yeniBloklar = [...new Set(loglar.map((l) => parseInt(l.blockNumber, 16)))].filter(
-    (b) => !blokZamanlari.has(b)
-  );
-  await Promise.all(yeniBloklar.map((b) => blokZamaniAl(b).catch(() => null)));
+  const cozumlenenLoglar = [];
+  const zamanGerekenBloklar = new Set();
+
+  for (const l of loglar) {
+    const topic0 = l.topics?.[0]?.toLowerCase();
+    const decoder = topic0 ? EVENT_DECODERS.get(topic0) : null;
+    if (!decoder) continue;
+
+    let parsed = null;
+    try {
+      parsed = decoder.iface.parseLog({ topics: l.topics, data: l.data });
+    } catch {}
+    if (!parsed) continue;
+
+    const blok = parseInt(l.blockNumber, 16);
+    const metaZaman = decoder.hasMeta && parsed.args[3] != null ? Number(parsed.args[3]) : 0;
+    if (!metaZaman && !blokZamanlari.has(blok)) {
+      zamanGerekenBloklar.add(blok);
+    }
+    cozumlenenLoglar.push({ raw: l, blok, decoder, parsed, metaZaman });
+  }
+
+  if (zamanGerekenBloklar.size) {
+    await Promise.all([...zamanGerekenBloklar].map((b) => blokZamaniAl(b).catch(() => null)));
+  }
 
   if (oturum !== sozlesmeOturumNo) return;
 
-  for (const l of loglar) {
-    const blok = parseInt(l.blockNumber, 16);
+  for (const { raw: l, blok, decoder, parsed, metaZaman } of cozumlenenLoglar) {
     const logIndex = parseInt(l.logIndex, 16);
     const anahtar = `${l.transactionHash}:${logIndex}`;
     if (islemAnahtarlari.has(anahtar)) continue;
     islemAnahtarlari.add(anahtar);
 
-    const parsed = iface.parseLog({ topics: l.topics, data: l.data });
-    if (!parsed) continue;
-
-    const zaman = blokZamanlari.get(blok) || 0;
-    const adres = ethers.getAddress(parsed.args.katilimci);
+    const zaman = metaZaman || blokZamanlari.get(blok) || 0;
+    const adres = ethers.getAddress(parsed.args[0]);
     const key = adres.toLowerCase();
 
-    if (parsed.name === "KayitOlundu") {
-      const takmaAd = parsed.args.takmaAd;
+    if (decoder.kind === "kayit") {
+      const takmaAd = String(parsed.args[1] ?? "");
+      const siraVal = decoder.hasMeta && parsed.args[2] != null ? Number(parsed.args[2]) : null;
       const mevcut = katilimcilar.get(key) || {
         adres,
         takmaAd,
         girisOnayli: false,
-        sira: katilimcilar.size + 1,
+        sira: siraVal || katilimcilar.size + 1,
       };
-      mevcut.takmaAd = takmaAd;
+      mevcut.takmaAd = takmaAd || mevcut.takmaAd;
       mevcut.kayitTx = l.transactionHash;
       mevcut.kayitBlok = blok;
-      mevcut.kayitZaman = zaman;
+      if (zaman) mevcut.kayitZaman = zaman;
+      if (siraVal) mevcut.sira = siraVal;
       katilimcilar.set(key, mevcut);
 
       islemListesi.push({
         tur: "kayit",
+        methodAd: aktifProfil?.register?.name || "kayitOl",
         tx: l.transactionHash,
         blok,
         logIndex,
         adres,
-        takmaAd,
+        takmaAd: mevcut.takmaAd,
         zaman,
       });
-    } else if (parsed.name === "GirisOnaylandi") {
+    } else if (decoder.kind === "giris") {
       const mevcut = katilimcilar.get(key) || {
         adres,
         takmaAd: kisaAdres(adres),
@@ -1051,6 +1298,7 @@ async function loglariTara(tepe, oturum = sozlesmeOturumNo, sozlesme = aktifSozl
 
       islemListesi.push({
         tur: "giris",
+        methodAd: aktifProfil?.approve?.name || "girisOnayla",
         tx: l.transactionHash,
         blok,
         logIndex,
@@ -1072,7 +1320,7 @@ async function loglariTara(tepe, oturum = sozlesmeOturumNo, sozlesme = aktifSozl
 }
 
 /* ===========================
-   4) BEKLEYEN / BELİRSİZ İŞLEM KALICILIĞI
+   5) BEKLEYEN / BELİRSİZ İŞLEM KALICILIĞI
    =========================== */
 function bekleyenHaritayiOku() {
   try {
@@ -1138,27 +1386,66 @@ function bekleyenIslemiYukle(hedefId = aktifSozlesme()?.id) {
 }
 
 /* ===========================
-   5) SÖZLEŞME VERİLERİNİ OKUMA
+   6) SÖZLEŞME VERİLERİNİ OKUMA
    =========================== */
 async function genelBilgileriOku(oturum = sozlesmeOturumNo, sozlesme = aktifSozlesme()) {
   if (!sozlesme || oturum !== sozlesmeOturumNo) return;
 
-  const [ad, kapasite, toplam, gorevli, tepeHex] = await Promise.all([
-    etkinlikAdiOkuFor(sozlesme.address),
-    ethCallDecodeFor(sozlesme.address, "KAPASITE"),
-    ethCallDecodeFor(sozlesme.address, "toplamKayit"),
-    ethCallDecodeFor(sozlesme.address, "gorevli"),
+  if (!aktifProfil) {
+    const algilanan = await yetenekleriAlgila(sozlesme.address);
+    if (oturum !== sozlesmeOturumNo) return;
+    sozlesme.capabilities = algilanan;
+    sozlesmeleriKaydet();
+    aktifProfil = algilanan;
+    uyumlulukArayuzunuUygula(aktifProfil);
+    yazmaSozlesmesiniGuncelle();
+    islemButonlariniGuncelle(aktifGonderimVar, "Zincire Kaydol", "Girişi Onayla");
+  }
+
+  const [ad, kapasiteHam, toplamHam, gorevliHam, tumKayitlarHam, tepeHex] = await Promise.all([
+    aktifProfil.title ? ethCallSlot(sozlesme.address, aktifProfil.title).catch(() => "") : "",
+    aktifProfil.capacity ? ethCallSlot(sozlesme.address, aktifProfil.capacity).catch(() => null) : null,
+    aktifProfil.total ? ethCallSlot(sozlesme.address, aktifProfil.total).catch(() => null) : null,
+    aktifProfil.officer ? ethCallSlot(sozlesme.address, aktifProfil.officer).catch(() => null) : null,
+    aktifProfil.allRecords ? ethCallSlot(sozlesme.address, aktifProfil.allRecords).catch(() => null) : null,
     hizli("eth_blockNumber", []),
   ]);
 
   if (oturum !== sozlesmeOturumNo) return;
 
+  let toplamSayi = toplamHam != null ? Number(toplamHam) : null;
+  if (tumKayitlarHam && typeof tumKayitlarHam.length === "number") {
+    for (const row of tumKayitlarHam) {
+      const rawUye = row.uye ?? row[0];
+      if (!rawUye) continue;
+      const adres = ethers.getAddress(rawUye);
+      const key = adres.toLowerCase();
+      const takmaAd = String(row.isim ?? row[1] ?? "");
+      const siraNum = Number(row.sira ?? row[2] ?? katilimcilar.size + 1);
+      const zamanNum = Number(row.zaman ?? row[3] ?? 0);
+
+      const mevcut = katilimcilar.get(key) || {
+        adres,
+        takmaAd,
+        girisOnayli: false,
+        sira: siraNum,
+      };
+      if (takmaAd) mevcut.takmaAd = takmaAd;
+      if (zamanNum && !mevcut.kayitZaman) mevcut.kayitZaman = zamanNum;
+      if (siraNum) mevcut.sira = siraNum;
+      katilimcilar.set(key, mevcut);
+    }
+    if (toplamSayi == null) {
+      toplamSayi = tumKayitlarHam.length;
+    }
+  }
+
   tepeBlok = parseInt(tepeHex, 16);
   sozlesmeBilgi = {
     etkinlikAdi: ad || "",
-    kapasite: Number(kapasite),
-    toplamKayit: Number(toplam),
-    gorevli: ethers.getAddress(gorevli),
+    kapasite: kapasiteHam != null ? Number(kapasiteHam) : null,
+    toplamKayit: toplamSayi,
+    gorevli: gorevliHam ? ethers.getAddress(gorevliHam) : null,
   };
 
   genelArayuzuGuncelle();
@@ -1170,27 +1457,39 @@ function genelArayuzuGuncelle() {
   const { kapasite, toplamKayit, gorevli } = sozlesmeBilgi;
 
   baslikVeMarkayiGuncelle();
-  el("kapasite").textContent = kapasite;
-  el("toplamKayit").textContent = toplamKayit;
 
-  const yuzde = kapasite > 0 ? Math.min(100, Math.round((toplamKayit / kapasite) * 100)) : 0;
-  el("kapasiteYuzde").textContent = yuzde + "%";
+  const gosterilecekToplam = toplamKayit != null ? toplamKayit : katilimcilar.size || null;
+  el("toplamKayit").textContent = gosterilecekToplam != null ? gosterilecekToplam : "–";
 
-  const $peron = el("parkPeronlari");
-  const slotAdedi = Math.max(1, Math.min(kapasite || 3, 12));
-  const doluMu = kapasite > 0 && toplamKayit >= kapasite;
-  $peron.innerHTML = "";
-  for (let i = 0; i < slotAdedi; i++) {
-    const span = document.createElement("span");
-    const oran = kapasite > 12 ? Math.round((toplamKayit / kapasite) * slotAdedi) : toplamKayit;
-    span.className = "bay" + (i < oran ? (doluMu ? " filled full-alert" : " filled") : "");
-    $peron.appendChild(span);
+  if (aktifProfil?.capacity && kapasite != null) {
+    el("kapasite").textContent = kapasite;
+    const pay = gosterilecekToplam ?? 0;
+    const yuzde = kapasite > 0 ? Math.min(100, Math.round((pay / kapasite) * 100)) : 0;
+    el("kapasiteYuzde").textContent = yuzde + "%";
+
+    const $peron = el("parkPeronlari");
+    const slotAdedi = Math.max(1, Math.min(kapasite || 3, 12));
+    const doluMu = kapasite > 0 && pay >= kapasite;
+    $peron.innerHTML = "";
+    for (let i = 0; i < slotAdedi; i++) {
+      const span = document.createElement("span");
+      const oran = kapasite > 12 ? Math.round((pay / kapasite) * slotAdedi) : pay;
+      span.className = "bay" + (i < oran ? (doluMu ? " filled full-alert" : " filled") : "");
+      $peron.appendChild(span);
+    }
+  } else {
+    el("kapasite").textContent = "–";
+    el("kapasiteYuzde").textContent = "Sınırsız";
   }
 
   if (gorevli) {
     el("gorevliAdresi").textContent = kisaAdres(gorevli);
     el("gorevliAdresi").href = `${ETHERSCAN_URL}/address/${gorevli}`;
     el("gorevliAdresi").title = gorevli;
+  } else {
+    el("gorevliAdresi").textContent = "–";
+    el("gorevliAdresi").href = "#";
+    el("gorevliAdresi").title = "";
   }
 
   if (tepeBlok) {
@@ -1201,7 +1500,7 @@ function genelArayuzuGuncelle() {
 }
 
 /* ===========================
-   6) CÜZDAN BAĞLANTISI & HESAP DEĞİŞİMİ
+   7) CÜZDAN BAĞLANTISI & HESAP DEĞİŞİMİ
    =========================== */
 function rolArayuzuGuncelle() {
   const $rol = el("rolRozeti");
@@ -1223,9 +1522,9 @@ function rolArayuzuGuncelle() {
     return;
   }
 
+  const hasOfficer = Boolean(aktifProfil?.officer && sozlesmeBilgi.gorevli);
   const gorevliMi =
-    sozlesmeBilgi.gorevli &&
-    aktifAdres.toLowerCase() === sozlesmeBilgi.gorevli.toLowerCase();
+    hasOfficer && aktifAdres.toLowerCase() === sozlesmeBilgi.gorevli.toLowerCase();
 
   $rol.style.display = "inline-block";
   $rol.className = "role-chip " + (gorevliMi ? "officer" : "member");
@@ -1235,8 +1534,10 @@ function rolArayuzuGuncelle() {
     $gorevliIpucu.textContent = "İşlem göndermek için Sepolia ağına geçmelisin.";
   } else if (gorevliMi) {
     $gorevliIpucu.textContent = "Yetkili görevli cüzdanı bağlı ✓ Aşağıdan katılımcı seçip onaylayabilirsin.";
-  } else {
+  } else if (hasOfficer) {
     $gorevliIpucu.textContent = "Bağlı adres görevli değil; çağrı yapılırsa sözleşme işlemi reddeder.";
+  } else {
+    $gorevliIpucu.textContent = "Yetki kontrolü doğrudan akıllı sözleşmede yapılır.";
   }
 }
 
@@ -1294,7 +1595,7 @@ function cuzdanBaglantisiniSifirla() {
 
 async function kullaniciDurumuYukle(oturum = sozlesmeOturumNo, sozlesme = aktifSozlesme()) {
   const hedefAdres = aktifAdres;
-  if (!hedefAdres || !sozlesme || oturum !== sozlesmeOturumNo) return;
+  if (!hedefAdres || !sozlesme || oturum !== sozlesmeOturumNo || !aktifProfil) return;
   const istekId = ++kullaniciIstekNo;
 
   el("kayitDurumu").textContent = "Okunuyor…";
@@ -1304,10 +1605,16 @@ async function kullaniciDurumuYukle(oturum = sozlesmeOturumNo, sozlesme = aktifS
   el("girisDurumu").className = "";
 
   try {
-    const [kayitli, takmaAd, girisYapti] = await Promise.all([
-      ethCallDecodeFor(sozlesme.address, "kayitliMi", [hedefAdres]),
-      ethCallDecodeFor(sozlesme.address, "kayitlar", [hedefAdres]),
-      ethCallDecodeFor(sozlesme.address, "girisYaptiMi", [hedefAdres]),
+    const [kayitliHam, takmaAdHam, girisYaptiHam] = await Promise.all([
+      aktifProfil.isRegistered
+        ? ethCallSlot(sozlesme.address, aktifProfil.isRegistered, [hedefAdres])
+        : Promise.resolve(null),
+      aktifProfil.nameByAddr
+        ? ethCallSlot(sozlesme.address, aktifProfil.nameByAddr, [hedefAdres])
+        : Promise.resolve(null),
+      aktifProfil.entryStatus
+        ? ethCallSlot(sozlesme.address, aktifProfil.entryStatus, [hedefAdres])
+        : Promise.resolve(null),
     ]);
 
     if (
@@ -1318,6 +1625,20 @@ async function kullaniciDurumuYukle(oturum = sozlesmeOturumNo, sozlesme = aktifS
       return;
     }
 
+    const yerelKayit = katilimcilar.get(hedefAdres.toLowerCase());
+    const takmaAd =
+      takmaAdHam != null && String(takmaAdHam).trim()
+        ? String(takmaAdHam)
+        : yerelKayit?.takmaAd || "";
+    const kayitli =
+      kayitliHam != null
+        ? Boolean(kayitliHam)
+        : Boolean(takmaAd || yerelKayit);
+    const girisYapti =
+      girisYaptiHam != null
+        ? Boolean(girisYaptiHam)
+        : Boolean(yerelKayit?.girisOnayli);
+
     const $kd = el("kayitDurumu");
     const $ta = el("takmaAdim");
     const $gd = el("girisDurumu");
@@ -1325,16 +1646,20 @@ async function kullaniciDurumuYukle(oturum = sozlesmeOturumNo, sozlesme = aktifS
     $kd.textContent = kayitli ? "Kayıtlı ✓" : "Kayıtlı değil";
     $kd.className = kayitli ? "ok" : "";
 
-    $ta.textContent = kayitli ? takmaAd : "–";
+    $ta.textContent = kayitli ? takmaAd || "–" : "–";
 
     $gd.textContent = girisYapti ? "Giriş onaylı ✓" : kayitli ? "Onay bekliyor" : "–";
     $gd.className = girisYapti ? "ok" : kayitli ? "warn" : "";
 
-    const doluMu = sozlesmeBilgi.kapasite > 0 && sozlesmeBilgi.toplamKayit >= sozlesmeBilgi.kapasite;
+    const doluMu =
+      Boolean(aktifProfil.capacity) &&
+      sozlesmeBilgi.kapasite > 0 &&
+      sozlesmeBilgi.toplamKayit >= sozlesmeBilgi.kapasite;
+
     if (!dogruAg) {
       el("kayitIpucu").textContent = "İşlem göndermek için Sepolia ağına geçmelisin.";
     } else if (kayitli) {
-      el("kayitIpucu").textContent = "Bu adres zaten kayıtlı (tekrar denenirse sözleşme reddeder).";
+      el("kayitIpucu").textContent = "Bu adres zaten kayıtlı (tekrar denenirse sözleşme reddedebilir).";
     } else if (doluMu) {
       el("kayitIpucu").textContent = "Kontenjan dolu (yeni kayıt denemesi sözleşmede reddedilir).";
     } else {
@@ -1413,15 +1738,8 @@ async function cuzdanBagla(sessiz = false, secenek = {}) {
       el("agAdi").textContent = "Sepolia";
       el("agChainId").textContent = "Chain 11155111";
 
-      if (sozlesme) {
-        el("kayitBtn").disabled = aktifGonderimVar;
-        el("girisOnaylaBtn").disabled = aktifGonderimVar;
-        yazmaSozlesmesi = new ethers.Contract(sozlesme.address, SOZLESME_ABI, signer);
-      } else {
-        el("kayitBtn").disabled = true;
-        el("girisOnaylaBtn").disabled = true;
-        yazmaSozlesmesi = null;
-      }
+      yazmaSozlesmesiniGuncelle();
+      islemButonlariniGuncelle(aktifGonderimVar);
     }
 
     rolArayuzuGuncelle();
@@ -1472,7 +1790,7 @@ async function sepoliaAginaGec() {
 }
 
 /* ===========================
-   7) HATA SINIFLANDIRMA & DURUM PANELİ
+   8) HATA SINIFLANDIRMA & DURUM PANELİ
    =========================== */
 function imzaReddedildiMi(err) {
   if (!err) return false;
@@ -1537,13 +1855,20 @@ function revertSebebiCikar(err) {
 
   const bilinenSebepler = [
     "Takma ad bos olamaz",
+    "Bu cuzdan zaten kayitli",
     "Bu adres zaten kayitli",
+    "Already registered",
     "Garaj kapasitesi doldu",
     "Kapasite doldu",
     "Sadece gorevli bu islemi yapabilir",
+    "Only owner",
+    "Only admin",
     "Bu adres garaja kayitli degil",
     "Bu adres kayitli degil",
+    "Not registered",
     "Bu katilimci zaten giris yapti",
+    "Already checked in",
+    "Already approved",
   ];
   for (const sebep of bilinenSebepler) {
     if (birlesik.toLowerCase().includes(sebep.toLowerCase())) {
@@ -1563,15 +1888,22 @@ async function sozlesmeRedSebebiniTespitEt(err, baglam) {
   const acikSebep = revertSebebiCikar(err);
   if (acikSebep) return acikSebep;
   if (typeof navigator !== "undefined" && navigator.onLine === false) return null;
-  if (!ethersYukluMu || !baglam || !aktifSozlesme()) return null;
+  const sozlesme = aktifSozlesme();
+  if (!ethersYukluMu || !baglam || !sozlesme || !aktifProfil) return null;
 
   try {
     if (baglam.islemTuru === "kayit") {
       if (!(baglam.takmaAd || "").trim()) return "Takma ad bos olamaz";
       const [kayitli, toplam, kapasite] = await Promise.all([
-        baglam.gonderen ? ethCallDecode("kayitliMi", [baglam.gonderen]).catch(() => null) : null,
-        ethCallDecode("toplamKayit").catch(() => null),
-        ethCallDecode("KAPASITE").catch(() => null),
+        baglam.gonderen && aktifProfil.isRegistered
+          ? ethCallSlot(sozlesme.address, aktifProfil.isRegistered, [baglam.gonderen]).catch(() => null)
+          : null,
+        aktifProfil.total
+          ? ethCallSlot(sozlesme.address, aktifProfil.total).catch(() => null)
+          : null,
+        aktifProfil.capacity
+          ? ethCallSlot(sozlesme.address, aktifProfil.capacity).catch(() => null)
+          : null,
       ]);
       if (kayitli === true) return "Bu adres zaten kayitli";
       if (kapasite !== null && toplam !== null && Number(toplam) >= Number(kapasite)) {
@@ -1579,9 +1911,15 @@ async function sozlesmeRedSebebiniTespitEt(err, baglam) {
       }
     } else if (baglam.islemTuru === "giris") {
       const [gorevliAddr, kayitli, giris] = await Promise.all([
-        ethCallDecode("gorevli").catch(() => null),
-        baglam.katilimci ? ethCallDecode("kayitliMi", [baglam.katilimci]).catch(() => null) : null,
-        baglam.katilimci ? ethCallDecode("girisYaptiMi", [baglam.katilimci]).catch(() => null) : null,
+        aktifProfil.officer
+          ? ethCallSlot(sozlesme.address, aktifProfil.officer).catch(() => null)
+          : null,
+        baglam.katilimci && aktifProfil.isRegistered
+          ? ethCallSlot(sozlesme.address, aktifProfil.isRegistered, [baglam.katilimci]).catch(() => null)
+          : null,
+        baglam.katilimci && aktifProfil.entryStatus
+          ? ethCallSlot(sozlesme.address, aktifProfil.entryStatus, [baglam.katilimci]).catch(() => null)
+          : null,
       ]);
       if (
         gorevliAddr &&
@@ -1638,14 +1976,18 @@ function hataSiniflandir(err, baglam = {}) {
   const birlesikAlt = (tespit + " " + rawMsg).toLowerCase();
   const hataAdimi = baglam.txHash ? 3 : 1;
 
-  if (birlesikAlt.includes("zaten kayitli") || birlesikAlt.includes("zaten kayıtlı")) {
+  if (
+    birlesikAlt.includes("zaten kayitli") ||
+    birlesikAlt.includes("zaten kayıtlı") ||
+    birlesikAlt.includes("already registered")
+  ) {
     return {
       tip: "err",
       rozet: "İşlem Başarısız",
       baslik: "Tekrar kayıt yapılamaz",
       mesaj:
         "Bu cüzdan adresi sözleşmeye zaten kayıtlı. Aynı adresle ikinci kez kayıt olunamaz.",
-      detay: "Sözleşme kuralı: require(!kayitliMi[msg.sender])",
+      detay: "Sözleşme kuralı: aynı adres yalnızca bir kez kayıt olabilir",
       txHash: baglam.txHash || null,
       adim: hataAdimi,
     };
@@ -1653,7 +1995,7 @@ function hataSiniflandir(err, baglam = {}) {
 
   if (birlesikAlt.includes("kapasitesi doldu") || birlesikAlt.includes("kapasite")) {
     const oranMetni =
-      sozlesmeBilgi.kapasite > 0
+      sozlesmeBilgi.kapasite > 0 && sozlesmeBilgi.toplamKayit != null
         ? ` (${sozlesmeBilgi.toplamKayit}/${sozlesmeBilgi.kapasite})`
         : "";
     return {
@@ -1673,46 +2015,60 @@ function hataSiniflandir(err, baglam = {}) {
       rozet: "İşlem Başarısız",
       baslik: "Geçersiz takma ad",
       mesaj: "Takma ad alanı boş bırakılamaz. Lütfen en az 1 karakterlik takma ad girin.",
-      detay: "Sözleşme kuralı: require(bytes(_takmaAd).length > 0)",
+      detay: "Sözleşme kuralı: boş isim kabul edilmez",
       txHash: baglam.txHash || null,
       adim: hataAdimi,
     };
   }
 
-  if (birlesikAlt.includes("sadece gorevli") || birlesikAlt.includes("sadece görevli")) {
+  if (
+    birlesikAlt.includes("sadece gorevli") ||
+    birlesikAlt.includes("sadece görevli") ||
+    birlesikAlt.includes("only owner") ||
+    birlesikAlt.includes("only admin")
+  ) {
     return {
       tip: "err",
       rozet: "Yetkisiz İşlem",
       baslik: "Yetkisiz hesap (Görevli değil)",
       mesaj:
-        "Bağlı cüzdan sözleşmedeki yetkili görevli adresi değil. Giriş onayını yalnızca sözleşmeyi yayınlayan görevli hesabı verebilir.",
-      detay: "Sözleşme kuralı: sadeceGorevli (msg.sender == gorevli)",
+        "Bağlı cüzdan sözleşmedeki yetkili görevli adresi değil. Giriş onayını yalnızca yetkili hesap verebilir.",
+      detay: "Sözleşme yetki kontrolü: msg.sender yetkili değil",
       txHash: baglam.txHash || null,
       adim: hataAdimi,
     };
   }
 
-  if (birlesikAlt.includes("kayitli degil") || birlesikAlt.includes("kayıtlı değil")) {
+  if (
+    birlesikAlt.includes("kayitli degil") ||
+    birlesikAlt.includes("kayıtlı değil") ||
+    birlesikAlt.includes("not registered")
+  ) {
     return {
       tip: "err",
       rozet: "İşlem Başarısız",
       baslik: "Katılımcı kayıtlı değil",
       mesaj:
-        "Giriş onayı verilmek istenen adres sözleşmeye henüz kayıt olmamış. Önce katılımcının kayitOl işlemini yapması gerekir.",
-      detay: "Sözleşme kuralı: require(kayitliMi[_katilimci])",
+        "Giriş onayı verilmek istenen adres sözleşmeye henüz kayıt olmamış. Önce katılımcının kayıt işlemini yapması gerekir.",
+      detay: "Sözleşme kuralı: katılımcı henüz kayıtlı değil",
       txHash: baglam.txHash || null,
       adim: hataAdimi,
     };
   }
 
-  if (birlesikAlt.includes("zaten giris yapti") || birlesikAlt.includes("zaten giriş yaptı")) {
+  if (
+    birlesikAlt.includes("zaten giris yapti") ||
+    birlesikAlt.includes("zaten giriş yaptı") ||
+    birlesikAlt.includes("already checked in") ||
+    birlesikAlt.includes("already approved")
+  ) {
     return {
       tip: "err",
       rozet: "İşlem Başarısız",
       baslik: "Giriş zaten onaylanmış",
       mesaj:
         "Bu katılımcının girişi daha önce onaylanmış. Aynı adrese ikinci kez giriş onayı verilemez.",
-      detay: "Sözleşme kuralı: require(!girisYaptiMi[_katilimci])",
+      detay: "Sözleşme kuralı: katılımcının girişi zaten onaylı",
       txHash: baglam.txHash || null,
       adim: hataAdimi,
     };
@@ -1860,9 +2216,9 @@ function durumPaneliniKapat() {
 function islemButonlariniGuncelle(kilitli, kayitYazi = null, girisYazi = null) {
   const $kayitBtn = el("kayitBtn");
   const $girisBtn = el("girisOnaylaBtn");
-  const pasif = kilitli || !dogruAg || !aktifSozlesme();
-  $kayitBtn.disabled = pasif;
-  $girisBtn.disabled = pasif;
+  const temelPasif = kilitli || !dogruAg || !aktifSozlesme();
+  $kayitBtn.disabled = temelPasif || !aktifProfil?.register;
+  $girisBtn.disabled = temelPasif || !aktifProfil?.approve;
   if (kayitYazi) $kayitBtn.querySelector("span").textContent = kayitYazi;
   if (girisYazi) $girisBtn.querySelector("span").textContent = girisYazi;
 }
@@ -1970,7 +2326,7 @@ async function bekleyenMakbuzuTekrarSorgula() {
 }
 
 /* ===========================
-   8) YAZMA İŞLEMLERİ (kayitOl & girisOnayla)
+   9) YAZMA İŞLEMLERİ (kayitOl / register & girisOnayla)
    =========================== */
 async function kayitOl() {
   if (aktifGonderimVar) return;
@@ -1981,6 +2337,15 @@ async function kayitOl() {
       rozet: "Sözleşme Yok",
       baslik: "Önce bir Sepolia sözleşmesi ekleyin",
       mesaj: "İşlem göndermek için sol panelden veya başlangıç kartından bir sözleşme eklemelisiniz.",
+    });
+    return;
+  }
+  if (!aktifProfil?.register) {
+    durumGoster({
+      tip: "err",
+      rozet: "Desteklenmiyor",
+      baslik: "Kayıt yazma fonksiyonu algılanamadı",
+      mesaj: "Bu sözleşmede desteklenen bir kayıt oluşturma fonksiyonu bulunamadı.",
     });
     return;
   }
@@ -2009,6 +2374,7 @@ async function kayitOl() {
     return;
   }
 
+  const fnName = aktifProfil.register.name;
   const takmaAd = el("takmaAdInput").value.trim();
   const baglam = {
     islemTuru: "kayit",
@@ -2027,11 +2393,11 @@ async function kayitOl() {
       baslik: "MetaMask imza onayı bekleniyor",
       mesaj:
         "İşlem henüz ağa gönderilmedi. MetaMask penceresinde kayıt işlemini onaylayın veya iptal etmek için reddedin.",
-      detay: `Çağrı: kayitOl("${takmaAd}") · Hesap: ${kisaAdres(aktifAdres)}`,
+      detay: `Çağrı: ${fnName}("${takmaAd}") · Hesap: ${kisaAdres(aktifAdres)}`,
       adim: 1,
     });
 
-    const tx = await yazmaSozlesmesi.kayitOl(takmaAd);
+    const tx = await yazmaSozlesmesi[fnName](takmaAd);
     baglam.txHash = tx.hash;
     bekleyenIslemiKaydet({
       sozlesme: sozlesme.id,
@@ -2102,6 +2468,15 @@ async function girisOnayla() {
     });
     return;
   }
+  if (!aktifProfil?.approve) {
+    durumGoster({
+      tip: "err",
+      rozet: "Desteklenmiyor",
+      baslik: "Bu sözleşmede giriş onaylama özelliği yok",
+      mesaj: "Seçili sözleşme yalnızca kayıt oluşturmayı destekliyor.",
+    });
+    return;
+  }
   if (!yazmaSozlesmesi) {
     durumGoster({
       tip: "err",
@@ -2138,6 +2513,7 @@ async function girisOnayla() {
     return;
   }
 
+  const fnName = aktifProfil.approve.name;
   const katilimci = ethers.getAddress(katilimciHam);
   const baglam = {
     islemTuru: "giris",
@@ -2156,11 +2532,11 @@ async function girisOnayla() {
       baslik: "MetaMask imza onayı bekleniyor",
       mesaj:
         "Giriş onayı işlemi henüz ağa gönderilmedi. MetaMask üzerinden imzalayın veya iptal etmek için reddedin.",
-      detay: `Çağrı: girisOnayla(${kisaAdres(katilimci)}) · Gönderen: ${kisaAdres(aktifAdres)}`,
+      detay: `Çağrı: ${fnName}(${kisaAdres(katilimci)}) · Gönderen: ${kisaAdres(aktifAdres)}`,
       adim: 1,
     });
 
-    const tx = await yazmaSozlesmesi.girisOnayla(katilimci);
+    const tx = await yazmaSozlesmesi[fnName](katilimci);
     baglam.txHash = tx.hash;
     bekleyenIslemiKaydet({
       sozlesme: sozlesme.id,
@@ -2220,11 +2596,14 @@ async function girisOnayla() {
 }
 
 /* ===========================
-   9) ZİNCİR & GEZGİN ÇİZİMİ
+   10) ZİNCİR & GEZGİN ÇİZİMİ
    =========================== */
 function siraliKatilimcilar() {
   return [...katilimcilar.values()].sort(
-    (a, b) => (b.kayitBlok || 0) - (a.kayitBlok || 0) || b.sira - a.sira
+    (a, b) =>
+      (b.kayitBlok || 0) - (a.kayitBlok || 0) ||
+      (b.kayitZaman || 0) - (a.kayitZaman || 0) ||
+      (b.sira || 0) - (a.sira || 0)
   );
 }
 
@@ -2286,9 +2665,15 @@ function listeyiCiz() {
   const sozlesme = aktifSozlesme();
   if (!sozlesme) return;
 
+  const hasEntry = Boolean(aktifProfil?.approve || aktifProfil?.entryStatus);
+  const hasApprove = Boolean(aktifProfil?.approve);
   const tumu = siraliKatilimcilar();
   const onayliAdet = tumu.filter((k) => k.girisOnayli).length;
   const bekleyenAdet = tumu.length - onayliAdet;
+
+  if (sozlesmeBilgi.toplamKayit == null && tumu.length > 0) {
+    el("toplamKayit").textContent = tumu.length;
+  }
 
   el("onayliSayisi").textContent = onayliAdet;
   el("bekleyenBilgi").textContent =
@@ -2297,18 +2682,23 @@ function listeyiCiz() {
   if (islemListesi.length) {
     const son = islemListesi[0];
     el("sonHareket").textContent = once(son.zaman);
-    el("sonHareketTur").textContent =
-      son.tur === "giris" ? `girisOnayla · ${son.takmaAd}` : `kayitOl · ${son.takmaAd}`;
+    el("sonHareketTur").textContent = `${son.methodAd || "kayitOl"} · ${son.takmaAd}`;
+  } else if (tumu.length) {
+    const sonKatilimci = tumu[0];
+    el("sonHareket").textContent = once(sonKatilimci.kayitZaman);
+    el("sonHareketTur").textContent = `${aktifProfil?.register?.name || "kayit"} · ${sonKatilimci.takmaAd}`;
   } else {
     el("sonHareket").textContent = "–";
     el("sonHareketTur").textContent = "Henüz işlem yok";
   }
 
-  const filtrelenen = tumu.filter((k) => {
-    if (zincirFiltre === "approved") return k.girisOnayli;
-    if (zincirFiltre === "pending") return !k.girisOnayli;
-    return true;
-  });
+  const filtrelenen = hasEntry
+    ? tumu.filter((k) => {
+        if (zincirFiltre === "approved") return k.girisOnayli;
+        if (zincirFiltre === "pending") return !k.girisOnayli;
+        return true;
+      })
+    : tumu;
 
   el("zincirSayac").textContent = filtrelenen.length;
   const $list = el("list");
@@ -2326,16 +2716,31 @@ function listeyiCiz() {
     li.dataset.addr = addrLow;
     li.style.animationDelay = Math.min(idx * 45, 360) + "ms";
 
+    const nodeBadgeHtml = hasEntry
+      ? `<span class="node-badge ${k.girisOnayli ? "ok" : "wait"}" title="${k.girisOnayli ? "Giriş onaylandı" : "Giriş onayı bekliyor"}">${k.girisOnayli ? "✓" : "•"}</span>`
+      : "";
+    const statusTagHtml = hasEntry
+      ? `<span class="tag ${k.girisOnayli ? "ok" : "wait"}">${k.girisOnayli ? "✓ Giriş Onaylı" : "⏳ Onay Bekliyor"}</span>`
+      : "";
+    const girisTxHtml =
+      hasEntry && k.girisTx
+        ? `<a class="mono" target="_blank" rel="noopener" href="${ETHERSCAN_URL}/tx/${k.girisTx}">giriş tx ↗</a>`
+        : "";
+    const quickFillHtml =
+      hasEntry && hasApprove && !k.girisOnayli
+        ? `<button class="quick-fill" type="button" data-fill="${k.adres}">Onay için seç ↗</button>`
+        : "";
+
     li.innerHTML = `
       <div class="node" style="background:${adresRengi(k.adres)}">
         <span></span>
-        <span class="node-badge ${k.girisOnayli ? "ok" : "wait"}" title="${k.girisOnayli ? "Giriş onaylandı" : "Giriş onayı bekliyor"}">${k.girisOnayli ? "✓" : "•"}</span>
+        ${nodeBadgeHtml}
       </div>
       <div class="card">
         <div class="row">
           <div class="name-wrap">
             <span class="name"></span>
-            <span class="tag ${k.girisOnayli ? "ok" : "wait"}">${k.girisOnayli ? "✓ Giriş Onaylı" : "⏳ Onay Bekliyor"}</span>
+            ${statusTagHtml}
             ${idx === 0 ? '<span class="tag">son</span>' : ""}
             ${benimMi ? '<span class="tag me">sen</span>' : ""}
           </div>
@@ -2345,8 +2750,8 @@ function listeyiCiz() {
           ${k.kayitZaman ? `<span class="mono">${tarihFmt.format(k.kayitZaman * 1000)}</span>` : ""}
           <a class="mono" target="_blank" rel="noopener" href="${ETHERSCAN_URL}/address/${k.adres}">${kisaAdres(k.adres)}</a>
           ${k.kayitTx ? `<a class="mono" target="_blank" rel="noopener" href="${ETHERSCAN_URL}/tx/${k.kayitTx}">kayıt tx ↗</a>` : ""}
-          ${k.girisTx ? `<a class="mono" target="_blank" rel="noopener" href="${ETHERSCAN_URL}/tx/${k.girisTx}">giriş tx ↗</a>` : ""}
-          ${!k.girisOnayli ? `<button class="quick-fill" type="button" data-fill="${k.adres}">Onay için seç ↗</button>` : ""}
+          ${girisTxHtml}
+          ${quickFillHtml}
         </div>
       </div>`;
 
@@ -2387,7 +2792,7 @@ function listeyiCiz() {
     }
   } else if (sozlesmeBilgi.toplamKayit > 0) {
     genCard.textContent =
-      "Sözleşmede kayıt görünüyor ancak bu aralıkta event logu bulunamadı. Sol panelden 'Düzenle' diyerek yayın bloğunu doğrulayabilirsiniz.";
+      "Sözleşmede kayıt görünüyor ancak bu aralıkta event logu bulunamadı (sözleşme event yayınlamıyor olabilir veya yayın bloğu daha sonrasına ayarlıdır).";
   } else {
     genCard.textContent = "Henüz kimse kaydolmadı. İlk kayıt seni bekliyor!";
   }
@@ -2403,29 +2808,36 @@ async function islemleriCiz(oturum = sozlesmeOturumNo, sozlesme = aktifSozlesme(
 
   el("cTx").textContent = islemListesi.length;
   const $txs = el("txs");
+  const hasEntry = Boolean(aktifProfil?.approve || aktifProfil?.entryStatus);
 
-  const filtrelenen = islemListesi.filter((it) => {
-    if (islemFiltre === "kayit") return it.tur === "kayit";
-    if (islemFiltre === "giris") return it.tur === "giris";
-    return true;
-  });
+  const filtrelenen = hasEntry
+    ? islemListesi.filter((it) => {
+        if (islemFiltre === "kayit") return it.tur === "kayit";
+        if (islemFiltre === "giris") return it.tur === "giris";
+        return true;
+      })
+    : islemListesi;
 
   if (!filtrelenen.length) {
     $txs.innerHTML = '<li class="tx-empty">Bu filtrede onaylı işlem bulunamadı.</li>';
     return;
   }
 
-  const satirlar = await Promise.all(
-    filtrelenen.map(async (it) => {
-      let m = null;
-      try {
-        m = await makbuzAl(it.tx);
-      } catch {}
-      return { it, m };
-    })
-  );
-
-  if (oturum !== sozlesmeOturumNo) return;
+  const satirlar = [];
+  for (let i = 0; i < filtrelenen.length; i += MAKBUZ_GRUP_BOYUTU) {
+    const grup = filtrelenen.slice(i, i + MAKBUZ_GRUP_BOYUTU);
+    const parca = await Promise.all(
+      grup.map(async (it) => {
+        let m = null;
+        try {
+          m = await makbuzAl(it.tx);
+        } catch {}
+        return { it, m };
+      })
+    );
+    if (oturum !== sozlesmeOturumNo) return;
+    satirlar.push(...parca);
+  }
 
   const sozlesmeAdi = sozlesmeBasligi(sozlesme);
   $txs.innerHTML = "";
@@ -2445,7 +2857,11 @@ async function islemleriCiz(oturum = sozlesmeOturumNo, sozlesme = aktifSozlesme(
     li.dataset.addr = addrLow;
 
     const methodClass = it.tur === "giris" ? "method-giris" : "method-kayit";
-    const methodAd = it.tur === "giris" ? "girisOnayla" : "kayitOl";
+    const methodAd =
+      it.methodAd ||
+      (it.tur === "giris"
+        ? aktifProfil?.approve?.name || "girisOnayla"
+        : aktifProfil?.register?.name || "kayitOl");
 
     li.innerHTML = `
       <div class="tx-top">
@@ -2453,7 +2869,7 @@ async function islemleriCiz(oturum = sozlesmeOturumNo, sozlesme = aktifSozlesme(
         <span class="pill ${basarili ? "ok" : "fail"}">${basarili ? "Başarılı" : "Başarısız"}</span>
       </div>
       <div class="tx-grid">
-        <span>Method</span><b><span class="pill ${methodClass}">${methodAd}</span> <span class="isim"></span></b>
+        <span>Method</span><b><span class="pill ${methodClass}"></span> <span class="isim"></span></b>
         <span>Blok</span><b class="mono"><a target="_blank" rel="noopener" href="${ETHERSCAN_URL}/block/${it.blok}">${sayiFmt.format(it.blok)}</a> · ${onay} onay</b>
         <span>Zaman</span><b>${once(it.zaman)}</b>
         <span>From</span><b class="mono"><a target="_blank" rel="noopener" href="${ETHERSCAN_URL}/address/${fromAddr}">${kisaAdres(fromAddr)}</a></b>
@@ -2466,6 +2882,7 @@ async function islemleriCiz(oturum = sozlesmeOturumNo, sozlesme = aktifSozlesme(
         <span>Ücret</span><b class="mono">${ucret}</b>
       </div>`;
 
+    li.querySelector("." + methodClass).textContent = methodAd;
     li.querySelector(".isim").textContent = it.takmaAd || kisaAdres(it.adres);
     const toNode = li.querySelector(".tx-to-name");
     if (toNode) toNode.textContent = sozlesmeAdi;
@@ -2474,7 +2891,7 @@ async function islemleriCiz(oturum = sozlesmeOturumNo, sozlesme = aktifSozlesme(
 }
 
 /* ===========================
-   10) TAM YENİLEME & ÇEVRİMDIŞI TAKİBİ
+   11) TAM YENİLEME & ÇEVRİMDIŞI TAKİBİ
    =========================== */
 function cevrimdisiDurumunuGuncelle() {
   const cevrimdisi = typeof navigator !== "undefined" && navigator.onLine === false;
@@ -2505,9 +2922,9 @@ async function tamYenile(elle = false, oturum = sozlesmeOturumNo) {
     if (oturum !== sozlesmeOturumNo) return;
     await genelBilgileriOku(oturum, sozlesme);
     if (oturum !== sozlesmeOturumNo) return;
-    if (aktifAdres) await kullaniciDurumuYukle(oturum, sozlesme);
-    if (oturum !== sozlesmeOturumNo) return;
     await loglariTara(tepeBlok, oturum, sozlesme);
+    if (oturum !== sozlesmeOturumNo) return;
+    if (aktifAdres) await kullaniciDurumuYukle(oturum, sozlesme);
     if (oturum !== sozlesmeOturumNo) return;
     listeyiCiz();
     await islemleriCiz(oturum, sozlesme);
@@ -2537,7 +2954,7 @@ async function tamYenile(elle = false, oturum = sozlesmeOturumNo) {
 }
 
 /* ===========================
-   11) GARAJ BOTU MASKOTU
+   12) GARAJ BOTU MASKOTU
    =========================== */
 const MASKOT_LAFLARI = [
   "Hoş geldin! Tx hash tek başına başarı değildir, makbuzu bekle 👀",
@@ -2593,7 +3010,7 @@ function maskotBaslat() {
 }
 
 /* ===========================
-   12) BAŞLATMA & OLAY DİNLEYİCİLER
+   13) BAŞLATMA & OLAY DİNLEYİCİLER
    =========================== */
 function sabitBilgileriYaz() {
   const sozlesme = aktifSozlesme();
@@ -2694,7 +3111,7 @@ function olaylariBagla() {
     const $yazi = $btn.querySelector("span");
     const eski = $yazi.textContent;
     $btn.disabled = true;
-    $yazi.textContent = "Sepolia'da Doğrulanıyor…";
+    $yazi.textContent = "Sepolia'da Algılanıyor…";
 
     try {
       await sozlesmeEkle({
@@ -2718,7 +3135,7 @@ function olaylariBagla() {
     const $yazi = $btn.querySelector("span");
     const eski = $yazi.textContent;
     $btn.disabled = true;
-    $yazi.textContent = duzenlenenSozlesmeId ? "Kaydediliyor…" : "Sepolia'da Doğrulanıyor…";
+    $yazi.textContent = duzenlenenSozlesmeId ? "Kaydediliyor…" : "Sepolia'da Algılanıyor…";
 
     try {
       if (duzenlenenSozlesmeId) {

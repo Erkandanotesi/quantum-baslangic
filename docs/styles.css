@@ -2279,3 +2279,62 @@ footer {
     animation: none !important;
   }
 }
+
+
+/* =====================================================
+   UYARLANABİLİR SÖZLEŞME YETENEK DÜZENİ
+   ===================================================== */
+@media (min-width: 680px) {
+  .stats.cols-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 720px) {
+  .action-grid.single-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.my-status.cols-2 {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 560px) {
+  .my-status.cols-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+.kv dd.feature-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
+  white-space: normal;
+  overflow: visible;
+}
+
+.feature-chip {
+  font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--card-soft);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.feature-chip.accent {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border-color: rgba(217, 119, 6, 0.25);
+}
+
+.feature-chip.teal {
+  color: var(--teal);
+  background: var(--teal-soft);
+  border-color: rgba(13, 148, 136, 0.28);
+}
