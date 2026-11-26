@@ -2,6 +2,12 @@
 
 
 
+
+
+website: https://erkandanotesi.github.io/quantum-baslangic/
+
+
+
 Kullanılan Araçlar: VS Code, Git, Node.js, npm, MetaMask, Remix IDE
 
 bana yeni olanlar: node.js
