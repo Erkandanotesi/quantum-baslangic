@@ -1,0 +1,15 @@
+# İşletim sistemi ve ortam dosyaları
+.DS_Store
+Thumbs.db
+.env
+.env.*
+
+# ZK geliştirme araçları, bağımlılıklar ve geçici derleme çıktıları
+# (Not: docs/zk-artifacts/ GitHub Pages için bilerek takip edilir)
+projects/zk/node_modules/
+projects/zk/tools/
+projects/zk/build/
+projects/zk/**/*.ptau
+projects/zk/**/*.r1cs
+projects/zk/**/*.wtns
+projects/zk/**/*.zkey

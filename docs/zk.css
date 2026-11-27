@@ -1,0 +1,292 @@
+/* Quantum Garaj ZK — Ek Arayüz Stilleri (styles.css üzerine inşa edilir) */
+
+.mode-switch {
+  display: inline-flex;
+  align-items: center;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 3px;
+  gap: 3px;
+  box-shadow: var(--shadow-sm);
+}
+
+.mode-tab {
+  height: 30px;
+  padding: 0 11px;
+  border-radius: 7px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: background-color 0.16s, color 0.16s;
+}
+
+.mode-tab:hover {
+  color: var(--text);
+}
+
+.mode-tab.active {
+  background: var(--teal-soft);
+  color: var(--teal);
+}
+
+.zk-privacy-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.zk-info-pill {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  box-shadow: var(--shadow-sm);
+}
+
+.zk-info-pill .zk-pill-k {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.zk-info-pill.secret .zk-pill-k { color: var(--teal); }
+.zk-info-pill.public .zk-pill-k { color: var(--accent); }
+.zk-info-pill.proof .zk-pill-k { color: var(--ok); }
+
+.zk-info-pill p {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.zk-note-box {
+  background: var(--card-soft);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-sm);
+  padding: 11px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.zk-note-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.74rem;
+  color: var(--muted);
+}
+
+.zk-note-value {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.74rem;
+  word-break: break-all;
+  color: var(--text);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 9px;
+  line-height: 1.4;
+}
+
+.zk-note-value.masked {
+  filter: blur(4px);
+  user-select: none;
+}
+
+.zk-mini-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.zk-mini-btn {
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--text);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  transition: border-color 0.16s, color 0.16s;
+}
+
+.zk-mini-btn:hover:not(:disabled) {
+  border-color: var(--teal);
+  color: var(--teal);
+}
+
+.zk-mini-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.zk-textarea {
+  width: 100%;
+  min-height: 86px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--card-soft);
+  color: var(--text);
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.76rem;
+  line-height: 1.45;
+  resize: vertical;
+  outline: none;
+  transition: border-color 0.18s, box-shadow 0.18s;
+}
+
+.zk-textarea:focus {
+  border-color: var(--teal);
+  background: var(--card);
+  box-shadow: 0 0 0 3px var(--teal-soft);
+}
+
+.zk-select {
+  width: 100%;
+  height: 38px;
+  padding: 0 10px;
+  border-radius: 9px;
+  border: 1px solid var(--line);
+  background: var(--card-soft);
+  color: var(--text);
+  font-size: 0.8rem;
+  outline: none;
+}
+
+.zk-radio-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.zk-mode-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 9px 10px;
+  border-radius: 9px;
+  border: 1px solid var(--line);
+  background: var(--card-soft);
+  cursor: pointer;
+  font-size: 0.77rem;
+  transition: border-color 0.16s, background-color 0.16s;
+}
+
+.zk-mode-option:has(input:checked) {
+  border-color: var(--teal);
+  background: var(--teal-soft);
+}
+
+.zk-mode-option input {
+  margin-top: 2px;
+  accent-color: var(--teal);
+}
+
+.zk-mode-option strong {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--text);
+}
+
+.zk-mode-option span {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.zk-warning-inline {
+  background: var(--warn-soft);
+  border: 1px solid rgba(217, 119, 6, 0.35);
+  color: var(--warn);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+
+.zk-ok-inline {
+  background: var(--ok-soft);
+  border: 1px solid rgba(5, 150, 105, 0.32);
+  color: var(--ok);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+
+.zk-full-card {
+  grid-column: 1 / -1;
+}
+
+.zk-merkle-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: var(--ok-soft);
+  color: var(--ok);
+}
+
+.zk-merkle-badge.warn {
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+
+.zk-relayer-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.9fr);
+  gap: 14px;
+}
+
+@media (max-width: 760px) {
+  .zk-relayer-grid,
+  .zk-radio-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.zk-tag-relayer {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 0.69rem;
+  font-weight: 600;
+  background: var(--teal-soft);
+  color: var(--teal);
+}
+
+.zk-tag-direct {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  border-radius: 999px;
+  font-size: 0.69rem;
+  font-weight: 600;
+  background: var(--accent-soft);
+  color: var(--accent);
+}

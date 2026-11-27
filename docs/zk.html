@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Quantum Garaj ZK — Anonim Sıfır-Bilgi Bileti (Sepolia)</title>
+  <meta name="description" content="Ethereum Sepolia üzerinde Groth16 zk-SNARK ve Poseidon Merkle Ağacı ile anonim garaj bileti alma, tarayıcıda sıfır-bilgi kanıtı üretme ve giriş doğrulama." />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23111621'/%3E%3Cpath d='M12 30L32 14L52 30V50H42V35H22V50H12V30Z' fill='%232dd4bf'/%3E%3Cpolygon points='32,34 40,38.5 32,43 24,38.5' fill='%23f59e0b'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="zk.css" />
+</head>
+<body>
+  <div class="layout">
+    <!-- SAĞ / ANA ÇALIŞMA ALANI -->
+    <main>
+      <header class="topbar">
+        <div class="brand">
+          <svg class="logo" width="54" height="54" viewBox="0 0 64 64" aria-hidden="true">
+            <defs>
+              <linearGradient id="logoBg" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#182032" />
+                <stop offset="100%" stop-color="#0d121d" />
+              </linearGradient>
+              <linearGradient id="logoTeal" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#2dd4bf" />
+                <stop offset="100%" stop-color="#0d9488" />
+              </linearGradient>
+              <linearGradient id="logoAccent" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0%" stop-color="#fbbf24" />
+                <stop offset="100%" stop-color="#f97316" />
+              </linearGradient>
+            </defs>
+            <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#logoBg)" stroke="url(#logoTeal)" stroke-width="2" />
+            <path d="M13 28 L32 14 L51 28" fill="none" stroke="url(#logoTeal)" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M18 29 V49 M46 29 V49" stroke="#475569" stroke-width="3" stroke-linecap="round" />
+            <g class="barrier">
+              <line x1="18" y1="33" x2="44" y2="33" stroke="#2dd4bf" stroke-width="3.2" stroke-linecap="round" stroke-dasharray="5 4" />
+            </g>
+            <circle cx="18" cy="33" r="3" fill="#fbbf24" />
+            <g class="cube-pulse">
+              <polygon points="32,36 40,40.5 32,45 24,40.5" fill="url(#logoAccent)" />
+              <polygon points="24,40.5 32,45 32,53 24,48.5" fill="#b45309" />
+              <polygon points="40,40.5 40,48.5 32,53 32,45" fill="#f59e0b" />
+            </g>
+            <circle class="spark" cx="50" cy="15" r="2.6" fill="#fbbf24" />
+          </svg>
+          <div class="brand-text">
+            <span class="brand-title">Quantum Garaj ZK</span>
+            <span class="brand-sub">Groth16 · Poseidon Merkle · Anonim Bilet</span>
+          </div>
+        </div>
+
+        <div class="topbar-controls">
+          <nav class="mode-switch" aria-label="Uygulama modu">
+            <a class="mode-tab" href="index.html">Klasik Kayıt</a>
+            <a class="mode-tab active" href="zk.html" aria-current="page">ZK Garaj</a>
+          </nav>
+
+          <button class="icon-btn" id="themeBtn" type="button" title="Tema değiştir" aria-label="Tema değiştir">
+            <svg id="themeIcon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="4"></circle>
+              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"></path>
+            </svg>
+          </button>
+
+          <button class="refresh-btn" id="yenileBtn" type="button" title="Zincir ve Merkle ağacını yenile">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+              <polyline points="21 3 21 9 15 9" />
+            </svg>
+            <span id="yenileBtnYazi">Yenile</span>
+          </button>
+
+          <button class="wallet-btn primary-connect" id="baglanBtn" type="button">
+            <span class="wallet-dot" id="bagliNokta" style="display:none"></span>
+            <span id="bagliAdres">Cüzdan Bağla</span>
+            <span class="role-chip" id="rolRozeti" style="display:none"></span>
+          </button>
+        </div>
+      </header>
+
+      <section class="hero">
+        <div class="kicker">
+          <span class="dot" id="kickerDot"></span>
+          <span class="kicker-name" id="garajAdi">ZK Sözleşme Bekleniyor</span>
+          <span>·</span>
+          <span class="mono">Sepolia · Groth16</span>
+        </div>
+        <h1>Sıfır-Bilgi ile <span>Anonim Garaj Bileti</span></h1>
+        <p class="lead">
+          1. cüzdanınla bilet ücretini ödeyip yalnızca gizli bir <strong>Poseidon mührü (commitment)</strong> kaydet;
+          ardından tarayıcında <strong>zk-SNARK kanıtı</strong> üreterek 2. temiz cüzdanla veya Görevli (Relayer) üzerinden anonim giriş yap.
+        </p>
+      </section>
+
+      <!-- Gizlilik Özeti Şeridi -->
+      <section class="zk-privacy-strip" aria-label="Sıfır-bilgi gizlilik sınırları">
+        <div class="zk-info-pill secret">
+          <div class="zk-pill-k">🔒 Tarayıcıda Gizli Kalır</div>
+          <p><code>secret</code>, <code>nullifierSecret</code>, Merkle yolu ve hangi biletin hangi cüzdana ait olduğu zincire asla gönderilmez.</p>
+        </div>
+        <div class="zk-info-pill public">
+          <div class="zk-pill-k">⛓️ Zincire Yazılanlar</div>
+          <p>Bilet alımında yalnızca <code>commitment</code> hash'i; girişte yalnızca <code>Groth16 proof</code>, <code>nullifierHash</code> ve takma ad.</p>
+        </div>
+        <div class="zk-info-pill proof">
+          <div class="zk-pill-k">✓ Matematiksel Garanti</div>
+          <p><code>GarajKayitZK</code> sözleşmesi kanıtı BN254 eşleşmesiyle doğrular; çift girişi ve front-running hırsızlığını kriptografik olarak engeller.</p>
+        </div>
+      </section>
+
+      <!-- Yanlış Ağ Uyarısı -->
+      <div class="network-banner" id="agUyariKutu" role="alert">
+        <span id="agUyari"></span>
+        <button class="switch-btn" id="sepoliaGecBtn" type="button">Sepolia Ağına Geç</button>
+      </div>
+
+      <!-- ZK Sözleşme Bağlama Kartı -->
+      <section class="onboarding-card" id="zkKurulumKart" aria-label="GarajKayitZK sözleşmesi bağla">
+        <div class="onboarding-head">
+          <div>
+            <h2>Sepolia <code>GarajKayitZK</code> Sözleşmesini Bağla</h2>
+            <p class="card-desc">Remix üzerinden Sepolia'ya deploy ettiğin <code>GarajKayitZK</code> adresini gir. Adres yalnızca bu tarayıcıda saklanır.</p>
+          </div>
+          <span class="storage-badge">Faz 1 · Groth16</span>
+        </div>
+
+        <form id="zkSozlesmeForm" class="contract-form" novalidate>
+          <div class="form-row-grid">
+            <div class="form-field">
+              <label class="field-label" for="zkSozlesmeAdres">GarajKayitZK Sözleşme Adresi <span class="required-mark">*</span></label>
+              <input class="input mono" id="zkSozlesmeAdres" type="text" placeholder="0x... (Sepolia GarajKayitZK adresi)" autocomplete="off" spellcheck="false" required />
+            </div>
+            <div class="form-field">
+              <label class="field-label" for="zkYayinBlok">Yayın Bloğu <span class="optional-mark">(hızlı log taraması için önerilir)</span></label>
+              <input class="input mono" id="zkYayinBlok" type="text" inputmode="numeric" placeholder="Örn: 7650000" autocomplete="off" />
+            </div>
+          </div>
+
+          <div class="form-error is-hidden" id="zkKurulumHata" role="alert"></div>
+
+          <div class="btn-row">
+            <button class="action-btn teal" id="zkBaglaBtn" type="submit">
+              <span>ZK Sözleşmesini Doğrula ve Bağla</span>
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <!-- Canlı İşlem & ZK Kanıt Durum Çubuğu (4 Adımlı Pipeline) -->
+      <section class="tx-status-bar" id="durumKutusu" aria-live="polite">
+        <div class="tx-status-head">
+          <div class="tx-status-title-wrap">
+            <span class="tx-state-badge" id="durumRozeti">Durum</span>
+            <strong class="tx-status-title" id="durumBaslik"></strong>
+          </div>
+          <div class="tx-status-actions">
+            <a class="mono tx-status-link" id="durumTxLink" target="_blank" rel="noopener" href="#" style="display:none"></a>
+            <button class="tx-close-btn" id="durumKapatBtn" type="button" title="Kapat" aria-label="Kapat">×</button>
+          </div>
+        </div>
+        <div class="tx-status-msg" id="durumMesaji"></div>
+        <div class="tx-status-detail mono" id="durumDetay" style="display:none"></div>
+        <div class="pipeline" id="islemHatti" style="display:none">
+          <span class="step-pill" data-step="0">0. ZK Kanıtı (Tarayıcı)</span>
+          <span class="step-arrow">→</span>
+          <span class="step-pill" data-step="1">1. Cüzdan Onayı</span>
+          <span class="step-arrow">→</span>
+          <span class="step-pill" data-step="2">2. Zincirde Bekleme</span>
+          <span class="step-arrow">→</span>
+          <span class="step-pill" data-step="3">3. Makbuz Doğrulama</span>
+        </div>
+      </section>
+
+      <!-- Aktif ZK Çalışma Alanı -->
+      <div id="zkWorkspace" class="is-hidden">
+        <!-- Özet Kartları -->
+        <section class="stats" aria-label="ZK Garaj özeti">
+          <div class="stat">
+            <div class="k"><span>Kesilen Bilet</span><span class="mono" id="biletYuzde">0%</span></div>
+            <div class="v"><span id="toplamBilet">0</span> <span style="color:var(--faint);font-weight:500">/</span> <span id="kapasite">–</span></div>
+            <div class="v-sub" id="biletUcretiYazi">Ücret: –</div>
+          </div>
+          <div class="stat">
+            <div class="k"><span>Anonim ZK Giriş</span></div>
+            <div class="v" id="toplamGiris">0</div>
+            <div class="v-sub" id="bekleyenBiletYazi">Henüz kullanılmamış: 0</div>
+          </div>
+          <div class="stat">
+            <div class="k"><span>Merkle Ağacı (Derinlik 10)</span></div>
+            <div class="v mono" id="merkleYaprakSayisi" style="font-size:1.15rem">0 yaprak</div>
+            <div class="v-sub" id="merkleUyumDurum">Senkronize ediliyor…</div>
+          </div>
+          <div class="stat">
+            <div class="k"><span>Sözleşme Kasası</span></div>
+            <div class="v mono" id="kasaBakiye" style="font-size:1.15rem">0 ETH</div>
+            <div class="v-sub mono" id="etkinlikIdKisa">ID: –</div>
+          </div>
+        </section>
+
+        <!-- Aşama 1 ve Aşama 2 Kartları -->
+        <section class="action-grid" aria-label="ZK Bilet ve Giriş İşlemleri">
+          <!-- KART 1: Aşama 1 — Gizli Bilet Al -->
+          <article class="action-card">
+            <div class="card-head">
+              <div>
+                <h2>1. Gizli Bilet Al</h2>
+                <p class="card-desc">1. cüzdanınla ücreti öde; zincire sadece Poseidon mührü yazılır.</p>
+              </div>
+              <span class="pill method-kayit">biletAl()</span>
+            </div>
+
+            <div class="zk-note-box">
+              <div class="zk-note-head">
+                <span>Gizli ZK Bilet Kodu (yalnızca sende kalır)</span>
+                <button class="zk-mini-btn" id="yeniBiletUretBtn" type="button">↻ Yeni Üret</button>
+              </div>
+              <div class="zk-note-value masked" id="uretilenBiletNotu">–</div>
+              <div class="zk-mini-actions">
+                <button class="zk-mini-btn" id="biletGosterBtn" type="button">👁 Göster</button>
+                <button class="zk-mini-btn" id="biletKopyalaBtn" type="button">Kopyala</button>
+                <button class="zk-mini-btn" id="biletIndirBtn" type="button">⬇ JSON İndir</button>
+              </div>
+            </div>
+
+            <div class="mini-kv">
+              <span>Zincire Gidecek Mühür (Poseidon Commitment)</span>
+              <strong class="mono" id="uretilenCommitment">–</strong>
+            </div>
+
+            <div class="field-group">
+              <div class="btn-row">
+                <button class="action-btn" id="biletAlBtn" type="button" disabled>
+                  <span id="biletAlBtnYazi">Bilet Kes ve Zincire Kaydet</span>
+                </button>
+              </div>
+              <div class="helper-note" id="biletAlIpucu">İşlem göndermek için MetaMask cüzdanını bağla. Bilet kodunu mutlaka sakla!</div>
+            </div>
+          </article>
+
+          <!-- KART 2: Aşama 2 — ZK Kanıtı ile Anonim Giriş -->
+          <article class="action-card officer-card">
+            <div class="card-head">
+              <div>
+                <h2>2. ZK ile Anonim Giriş</h2>
+                <p class="card-desc">Tarayıcıda Groth16 kanıtı üret, 2. temiz cüzdanla veya Relayer ile gir.</p>
+              </div>
+              <span class="pill method-giris">zkGirisYap()</span>
+            </div>
+
+            <div class="field-group" style="margin-top:0">
+              <label class="field-label" for="kayitliBiletSec">Bu tarayıcıda saklanan biletler</label>
+              <div style="display:flex;gap:6px">
+                <select class="zk-select mono" id="kayitliBiletSec">
+                  <option value="">-- Kayıtlı bilet seç veya aşağıya yapıştır --</option>
+                </select>
+                <label class="zk-mini-btn" style="height:38px;white-space:nowrap;cursor:pointer">
+                  📂 JSON Yükle
+                  <input id="biletDosyaInput" type="file" accept=".json,application/json" style="display:none" />
+                </label>
+              </div>
+
+              <label class="field-label" for="girisBiletNotuInput">Gizli Bilet Kodu (<code>qzk-v1-...</code>)</label>
+              <input class="input mono" id="girisBiletNotuInput" type="password" placeholder="qzk-v1-..." autocomplete="off" spellcheck="false" />
+
+              <label class="field-label" for="zkTakmaAdInput">Garaj Takma Adın (front-running kilitli)</label>
+              <input class="input" id="zkTakmaAdInput" type="text" maxlength="48" placeholder="Örn: HayaletSürücü #1" autocomplete="off" />
+
+              <div class="zk-radio-row" role="radiogroup" aria-label="Giriş gönderim modu">
+                <label class="zk-mode-option">
+                  <input type="radio" name="girisMod" value="direct" checked />
+                  <div>
+                    <strong>2. Cüzdanla Gönder</strong>
+                    <span>Bağlı temiz hesabınla zincire yaz</span>
+                  </div>
+                </label>
+                <label class="zk-mode-option">
+                  <input type="radio" name="girisMod" value="relayer" />
+                  <div>
+                    <strong>Relayer Paketi Üret</strong>
+                    <span>Gas gerekmez; Görevli iletir</span>
+                  </div>
+                </label>
+              </div>
+
+              <div class="zk-warning-inline is-hidden" id="ayniCuzdanUyari"></div>
+
+              <div class="btn-row">
+                <button class="action-btn teal" id="zkGirisBtn" type="button">
+                  <span id="zkGirisBtnYazi">ZK Kanıtı Üret ve Giriş Yap</span>
+                </button>
+              </div>
+              <div class="helper-note" id="zkGirisIpucu">
+                Kanıt üretimi (~0.5–1.5 sn) tamamen tarayıcında gerçekleşir; gizli bilet dışarı çıkmaz.
+              </div>
+
+              <!-- Relayer Paket Çıktısı -->
+              <div class="zk-note-box is-hidden" id="relayerCiktiKutu">
+                <div class="zk-note-head">
+                  <span>Üretilen ZK Kanıt Paketi (Relayer / Görevli için)</span>
+                  <button class="zk-mini-btn" id="relayerPaketKopyalaBtn" type="button">Paketi Kopyala</button>
+                </div>
+                <textarea class="zk-textarea" id="relayerCiktiJson" readonly></textarea>
+              </div>
+            </div>
+          </article>
+
+          <!-- KART 3: Görevli / Relayer Paneli -->
+          <article class="action-card zk-full-card">
+            <div class="card-head">
+              <div>
+                <h2>3. Görevli &amp; Relayer Paneli</h2>
+                <p class="card-desc">Katılımcının ürettiği ZK kanıt paketini onun adına zincire ilet (sıfır-gas anonim giriş) veya biriken bilet ücretlerini çek.</p>
+              </div>
+              <span class="pill method-giris">Relayer · ucretleriCek()</span>
+            </div>
+
+            <div class="zk-relayer-grid">
+              <div class="field-group" style="margin-top:0">
+                <label class="field-label" for="relayerGirisJson">Katılımcıdan Gelen ZK Kanıt Paketi (JSON)</label>
+                <textarea class="zk-textarea" id="relayerGirisJson" placeholder='{"pA":[...],"pB":[...],"pC":[...],"kok":"...","nullifierHash":"...","takmaAd":"...","girisAdresi":"0x0000..."}'></textarea>
+                <div class="zk-ok-inline is-hidden" id="relayerOnizleme"></div>
+                <div class="btn-row">
+                  <button class="action-btn teal" id="relayerGonderBtn" type="button" disabled>
+                    <span>Kanıtı Doğrula ve Katılımcı Adına Gönder</span>
+                  </button>
+                </div>
+              </div>
+
+              <div class="field-group" style="margin-top:0">
+                <div class="officer-info">
+                  <span>Yetkili görevli:</span>
+                  <a class="mono" id="gorevliAdresi" target="_blank" rel="noopener" href="#">–</a>
+                </div>
+                <div class="mini-kv">
+                  <span>Çekilebilir Kasa Bakiyesi</span>
+                  <strong class="mono" id="gorevliKasaBakiye">0 ETH</strong>
+                </div>
+                <div class="btn-row" style="margin-top:auto">
+                  <button class="action-btn" id="ucretCekBtn" type="button" disabled>
+                    <span>Biriken Ücretleri Çek</span>
+                  </button>
+                </div>
+                <div class="helper-note" id="gorevliIpucu">Relayer gönderimini herkes yapabilir; ücret çekimi yalnızca görevli cüzdanına açıktır.</div>
+              </div>
+            </div>
+          </article>
+        </section>
+
+        <!-- Zincir Üstü Anonim Giriş Listesi -->
+        <div class="section-head">
+          <div class="section-title">
+            <h2>Anonim ZK Giriş Kayıtları</h2>
+            <span class="count-badge mono" id="girisSayac">0</span>
+          </div>
+          <span class="zk-merkle-badge" id="merkleRozet">✓ Merkle Senkron</span>
+        </div>
+
+        <ol class="chain" id="zkGirisListesi" aria-live="polite">
+          <li class="tx-empty">Henüz ZK giriş kaydı bulunmuyor.</li>
+        </ol>
+      </div>
+
+      <footer>
+        <span id="status">Başlamak için Sepolia'daki GarajKayitZK sözleşme adresini bağla.</span>
+        <span class="mono">Quantum Garaj ZK · Groth16 (BN254)</span>
+      </footer>
+    </main>
+
+    <!-- SOL PANEL: Sözleşme & Merkle Telemetrisi -->
+    <aside aria-label="ZK sözleşme ve bilet mühürleri">
+      <section class="panel" id="zkBilgiPanel">
+        <h2 class="panel-head">
+          <span>ZK Sözleşme</span>
+          <button class="panel-add-btn" id="sozlesmeDegistirBtn" type="button">Değiştir</button>
+        </h2>
+        <dl class="kv">
+          <dt>Etkinlik</dt><dd id="sideEtkinlik">–</dd>
+          <dt>Adres</dt>
+          <dd>
+            <a class="mono" id="sideAdres" target="_blank" rel="noopener" href="#">–</a>
+            <button class="copy" id="copySozlesmeBtn" type="button">Kopyala</button>
+          </dd>
+          <dt>Ağ</dt><dd>Sepolia <span class="mono" style="color:var(--muted)">· 11155111</span></dd>
+          <dt>Bilet Ücreti</dt><dd class="mono" id="sideUcret">–</dd>
+          <dt>Güncel Kök</dt><dd class="mono" id="sideKok">–</dd>
+          <dt>Yerel Kök</dt><dd class="mono" id="sideYerelKok">–</dd>
+          <dt>Devre</dt><dd class="mono">GarajBilet(10) · 2937 kısıt</dd>
+        </dl>
+      </section>
+
+      <section class="panel" id="biletMuhurPanel">
+        <h2 class="panel-head">
+          <span>Merkle Yaprakları (Biletler)</span>
+          <span class="count-badge mono" id="yaprakSayac">0</span>
+        </h2>
+        <ul class="txs" id="yaprakListesi">
+          <li class="tx-empty">Sözleşme bağlandığında kesilen bilet mühürleri burada görünür.</li>
+        </ul>
+      </section>
+    </aside>
+  </div>
+
+  <!-- Kütüphaneler: ethers v6 + paketlenmiş snarkjs & poseidon2 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.13.4/ethers.umd.min.js"></script>
+  <script src="zk-vendor/poseidon2.js"></script>
+  <script src="zk-vendor/snarkjs.min.js"></script>
+  <script src="zk-app.js"></script>
+</body>
+</html>
