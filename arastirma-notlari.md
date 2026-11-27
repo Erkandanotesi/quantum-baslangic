@@ -459,7 +459,7 @@ Receipt ve state kontrol edilir:
 
 Benim yorumum: “İşlem başarısız” ile “sonucunu öğrenemedim” neden farklıdır?
 
-İşlem başarısız demek, İşlemin bir bloğa dahil edildiği ancak bir kural ihlali, gas yetersizliğinden iptal edildiği anlamına gelebilir. receipt üzerinden görülebilir.
+İşlem başarısız demek, İşlemin bir bloğa dahil edildiği ancak bir kural ihlali veya gas yetersizliğinden iptal edildiği anlamına gelir. receipt üzerinden görülebilir.
 
 sonucunu öğrenememek ise: İnternet kopması veya başka bir nedenle işlemin son durumunun bilinmemesi. Bu durumda işlem başarıyla onaylanmış ya da pending aşamasında olabilir.
 
@@ -1155,10 +1155,4 @@ ayrıca etherscan üzerinde chainID de belli eder.
 
 
 Benim yorumum: işlem başarısız kesin bir sonuçtur. sonuç henüz doğrulanmadı ise bağlantı sorunu sebebiyle işlemin durumunun bilinmediğini gösterir. işlem onaylanmış yada onaylanmamış olabilir.
-
-
-
-
-
-
 
